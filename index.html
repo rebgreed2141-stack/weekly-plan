@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>週案日誌（デモ）</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
+  <style>
+    :root{
+      --w: 800px;           /* ここに必ず収める */
+      --gap: 10px;
+      --bd: #d7d7d7;
+      --bg: #f4f5f6;
+      --card: #fff;
+      --fg: #1f2328;
+      --muted:#6b7280;
+      --soft:#f7f7f7;
+
+      --ta-h: 84px;         /* 日誌3欄の高さ */
+      --short-h: 140px;     /* 1週間評価・個別（同じ高さ） */
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+      color:var(--fg);
+      background:var(--bg);
+    }
+
+    /* 800pxに必ず収める */
+    .app{
+      width: min(100vw, var(--w));
+      margin: 0 auto;
+      padding: 12px;
+      overflow-x: hidden;
+    }
+
+    .header{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap: var(--gap);
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .title{
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1.2;
+    }
+    .sub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .actions{
+      display:flex;
+      gap: 8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    button{
+      border: 1px solid var(--bd);
+      background:#fff;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button.primary{
+      background:#111827;
+      color:#fff;
+      border-color:#111827;
+    }
+    button.danger{
+      color:#b91c1c;
+      border-color:#f1caca;
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--bd);
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    /* 月・週・組の入力（Excelの黄色部分） */
+    .topGrid{
+      display:grid;
+      grid-template-columns: 120px 1fr;
+      gap: var(--gap);
+      align-items:center;
+      margin-bottom: 10px;
+    }
+    .topGrid .inputs{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1.2fr;
+      gap: var(--gap);
+      align-items:center;
+    }
+    label{
+      font-size: 13px;
+      font-weight: 800;
+    }
+    input, select, textarea{
+      width: 100%;
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 14px;
+      background:#fff;
+    }
+    textarea{
+      resize: vertical;
+      line-height: 1.4;
+    }
+
+    .autoLine{
+      display:grid;
+      grid-template-columns: 120px 1fr;
+      gap: var(--gap);
+      align-items:center;
+      margin-bottom: 10px;
+    }
+    .autoValue{
+      border: 1px solid var(--bd);
+      border-radius: 10px;
+      padding: 10px;
+      background: var(--soft);
+      font-weight: 900;
+    }
+
+    /* 日誌テーブル：800内に収める（横スクロールなし） */
+    table{
+      width:100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed; /* これが重要 */
+    }
+    th, td{
+      border:1px solid var(--bd);
+      padding: 8px;
+      vertical-align: top;
+      background:#fff;
+    }
+    th{
+      background: var(--soft);
+      font-size: 12px;
+      text-align: left;
+      font-weight: 900;
+    }
+    .colDate{ width: 110px; } /* 日付列を固定 */
+    .dateCell{
+      background: var(--soft);
+      font-weight: 900;
+    }
+    .dateTop{
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+    .dateSub{
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .datePickerInCell{
+      width: 100%;
+      padding: 8px;
+      font-size: 13px;
+    }
+    .tarea{
+      height: var(--ta-h);
+      min-height: var(--ta-h);
+    }
+
+    .sectionTitle{
+      font-weight: 900;
+      margin: 0 0 8px 0;
+      font-size: 14px;
+    }
+
+    .shortArea{
+      height: var(--short-h);
+      min-height: var(--short-h);
+    }
+
+    .caseBox{
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      padding: 10px;
+      background:#fff;
+      margin-top: 10px;
+    }
+    .caseHead{
+      display:grid;
+      grid-template-columns: 120px 1fr;
+      gap: var(--gap);
+      align-items:center;
+      margin-bottom: 8px;
+    }
+
+    .statusbar{
+      font-size: 12px;
+      color: var(--muted);
+      display:flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+    /* もし画面がさらに小さければ、上段入力を縦に落とす */
+    @media (max-width: 520px){
+      .topGrid .inputs{ grid-template-columns: 1fr; }
+      .autoLine{ grid-template-columns: 1fr; }
+      .topGrid{ grid-template-columns: 1fr; }
+      .caseHead{ grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <div class="header">
+      <div>
+        <div class="title">週案日誌（デモ）</div>
+        <div class="sub">自動保存（入力ごと） / 800×1280（縦）想定</div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="btnExport">CSV出力</button>
+        <button class="danger" id="btnClear">この週を消去</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="topGrid">
+        <label>入力</label>
+        <div class="inputs">
+          <input id="monthNum" type="number" min="1" max="12" placeholder="月（例：4）" />
+          <input id="weekNum" type="number" min="1" max="6" placeholder="週（例：1）" />
+          <select id="classSelect">
+            <option value="">組（選択）</option>
+            <option value="もみじ">もみじ</option>
+            <option value="どんぐり">どんぐり</option>
+            <option value="こぐま">こぐま</option>
+            <option value="りす">りす</option>
+            <option value="のうさぎ">のうさぎ</option>
+            <option value="かもしか">かもしか</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="autoLine">
+        <label>週</label>
+        <div class="autoValue" id="weekLabel">—</div>
+      </div>
+      <div class="autoLine" style="margin-bottom:0;">
+        <label>クラス</label>
+        <div class="autoValue" id="classLabel">—</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sectionTitle">週のねらい</div>
+      <textarea id="weeklyAim" placeholder="週のねらいを入力"></textarea>
+
+      <div class="sectionTitle" style="margin-top:10px;">行事（空欄OK）</div>
+      <input id="events" type="text" placeholder="行事がなければ空欄" />
+    </div>
+
+    <div class="card">
+      <div class="sectionTitle">日誌（月〜土）</div>
+      <table>
+        <thead>
+          <tr>
+            <th class="colDate">日付</th>
+            <th>子どもの活動</th>
+            <th>保育評価（日誌）</th>
+            <th>出欠状況</th>
+          </tr>
+        </thead>
+        <tbody id="journalBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="sectionTitle">1週間の評価</div>
+      <textarea id="weeklyEvaluation" class="shortArea" placeholder="1週間の評価"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="sectionTitle">個別（事例と今後の展望）</div>
+
+      <div class="caseBox">
+        <div class="caseHead">
+          <label>事例1 日付</label>
+          <input id="case1Date" type="date" />
+        </div>
+        <textarea id="case1Text" class="shortArea" placeholder="事例1（今後の展望など）"></textarea>
+      </div>
+
+      <div class="caseBox">
+        <div class="caseHead">
+          <label>事例2 日付</label>
+          <input id="case2Date" type="date" />
+        </div>
+        <textarea id="case2Text" class="shortArea" placeholder="事例2（今後の展望など）"></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="statusbar">
+        <div>保存：自動</div>
+        <div>週キー：<span class="mono" id="weekKeyView">未設定</span></div>
+        <div>最終保存：<span class="mono" id="lastSavedView">—</span></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ===== 固定定義 =====
+  const jpDow = ["日","月","火","水","木","金","土"];
+  const classToAge = {
+    "もみじ": 0,
+    "どんぐり": 1,
+    "こぐま": 2,
+    "りす": 3,
+    "のうさぎ": 4,
+    "かもしか": 5
+  };
+  const STORAGE_PREFIX = "shuan_demo_week_";
+
+  // ===== DOM =====
+  const el = {
+    monthNum: document.getElementById("monthNum"),
+    weekNum: document.getElementById("weekNum"),
+    classSelect: document.getElementById("classSelect"),
+
+    weekLabel: document.getElementById("weekLabel"),
+    classLabel: document.getElementById("classLabel"),
+
+    weeklyAim: document.getElementById("weeklyAim"),
+    events: document.getElementById("events"),
+
+    journalBody: document.getElementById("journalBody"),
+
+    weeklyEvaluation: document.getElementById("weeklyEvaluation"),
+    case1Date: document.getElementById("case1Date"),
+    case1Text: document.getElementById("case1Text"),
+    case2Date: document.getElementById("case2Date"),
+    case2Text: document.getElementById("case2Text"),
+
+    weekKeyView: document.getElementById("weekKeyView"),
+    lastSavedView: document.getElementById("lastSavedView"),
+
+    btnExport: document.getElementById("btnExport"),
+    btnClear: document.getElementById("btnClear"),
+  };
+
+  // ===== ユーティリティ =====
+  const pad2 = (n) => String(n).padStart(2, "0");
+
+  function parseISODate(iso){
+    if(!iso) return null;
+    const [y,m,d] = iso.split("-").map(Number);
+    if(!y || !m || !d) return null;
+    return new Date(y, m-1, d, 12, 0, 0, 0); // ローカルで安定
+  }
+  function toISO(dateObj){
+    return `${dateObj.getFullYear()}-${pad2(dateObj.getMonth()+1)}-${pad2(dateObj.getDate())}`;
+  }
+  function addDays(dateObj, days){
+    const d = new Date(dateObj.getTime());
+    d.setDate(d.getDate() + days);
+    return d;
+  }
+  function formatMD(dateObj){
+    const m = dateObj.getMonth() + 1;
+    const d = dateObj.getDate();
+    return `${m}/${d}`;
+  }
+  function formatMDJpDow(dateObj){
+    return `${formatMD(dateObj)}（${jpDow[dateObj.getDay()]}）`;
+  }
+  function nowIso(){
+    const d = new Date();
+    return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  }
+
+  // ===== 表示生成（Excelの右側セル相当） =====
+  function getWeekLabel(){
+    const m = Number(el.monthNum.value);
+    const w = Number(el.weekNum.value);
+    if(!m || !w) return "";
+    return `${m}月第${w}週`;
+  }
+  function getClassLabel(){
+    const c = el.classSelect.value;
+    if(!c) return "";
+    const age = classToAge[c];
+    return `${age}歳児${c}組`;
+  }
+  function refreshTopLabels(){
+    const wk = getWeekLabel();
+    const cl = getClassLabel();
+    el.weekLabel.textContent = wk || "—";
+    el.classLabel.textContent = cl || "—";
+  }
+
+  // ===== 週キー（保存単位）：月曜日(ISO)で1週1ファイル =====
+  function weekKey(mondayIso){
+    if(!mondayIso) return "";
+    return STORAGE_PREFIX + mondayIso;
+  }
+
+  // ===== 日誌6行生成（カレンダーは月曜セル内） =====
+  function buildJournalRows(mondayIso){
+    el.journalBody.innerHTML = "";
+
+    const monday = parseISODate(mondayIso);
+    const hasDate = !!monday;
+
+    for(let i=0;i<6;i++){
+      const tr = document.createElement("tr");
+
+      // 日付セル
+      const tdDate = document.createElement("td");
+      tdDate.className = "dateCell";
+
+      const top = document.createElement("div");
+      top.className = "dateTop";
+
+      const sub = document.createElement("div");
+      sub.className = "dateSub";
+
+      if(hasDate){
+        const dateObj = addDays(monday, i);
+        top.textContent = formatMD(dateObj);
+        sub.textContent = `（${jpDow[dateObj.getDay()]}）`;
+      }else{
+        top.textContent = "—";
+        sub.textContent = "";
+      }
+
+      tdDate.appendChild(top);
+      tdDate.appendChild(sub);
+
+      // 月曜（i=0）のセル内にカレンダーを置く
+      if(i === 0){
+        const dateInput = document.createElement("input");
+        dateInput.type = "date";
+        dateInput.className = "datePickerInCell";
+        dateInput.id = "mondayInCell";
+        dateInput.value = mondayIso || "";
+        dateInput.addEventListener("change", () => {
+          const iso = dateInput.value || "";
+          // 月曜を変えたら、別週キーになるので、まず行を再生成→保存データを読込
+          onMondayChanged(iso);
+        });
+        tdDate.appendChild(dateInput);
+      }
+
+      // 3列（textarea）
+      const tdA = document.createElement("td");
+      const tdB = document.createElement("td");
+      const tdC = document.createElement("td");
+
+      const taA = document.createElement("textarea");
+      const taB = document.createElement("textarea");
+      const taC = document.createElement("textarea");
+
+      taA.className = "tarea";
+      taB.className = "tarea";
+      taC.className = "tarea";
+
+      taA.placeholder = "子どもの活動";
+      taB.placeholder = "保育評価（日誌）";
+      taC.placeholder = "出欠状況（例：風邪で○○ちゃん休み）";
+
+      taA.dataset.field = `day${i}_activity`;
+      taB.dataset.field = `day${i}_evaluation`;
+      taC.dataset.field = `day${i}_attendance`;
+
+      tdA.appendChild(taA);
+      tdB.appendChild(taB);
+      tdC.appendChild(taC);
+
+      tr.appendChild(tdDate);
+      tr.appendChild(tdA);
+      tr.appendChild(tdB);
+      tr.appendChild(tdC);
+
+      el.journalBody.appendChild(tr);
+    }
+
+    // 生成後、日誌テキストにも自動保存イベントを付ける
+    hookJournalAutosave();
+  }
+
+  function hookJournalAutosave(){
+    Array.from(el.journalBody.querySelectorAll("textarea")).forEach(t => {
+      t.addEventListener("input", scheduleAutosave);
+      t.addEventListener("change", scheduleAutosave);
+    });
+  }
+
+  // ===== データ収集 =====
+  function collectData(mondayIso){
+    const monday = parseISODate(mondayIso);
+
+    const data = {
+      month: el.monthNum.value ? Number(el.monthNum.value) : "",
+      week: el.weekNum.value ? Number(el.weekNum.value) : "",
+      weekLabel: getWeekLabel(),
+      classKey: el.classSelect.value || "",
+      classLabel: getClassLabel(),
+
+      mondayIso: mondayIso || "",
+      mondayPretty: monday ? formatMDJpDow(monday) : "",
+
+      weeklyAim: el.weeklyAim.value || "",
+      events: el.events.value || "",
+
+      journal: [],
+      weeklyEvaluation: el.weeklyEvaluation.value || "",
+
+      individual: [
+        { dateIso: el.case1Date.value || "", text: el.case1Text.value || "" },
+        { dateIso: el.case2Date.value || "", text: el.case2Text.value || "" }
+      ],
+
+      updatedAt: nowIso()
+    };
+
+    for(let i=0;i<6;i++){
+      const baseDate = monday ? addDays(monday, i) : null;
+      const row = {
+        dateIso: baseDate ? toISO(baseDate) : "",
+        datePretty: baseDate ? formatMDJpDow(baseDate) : "",
+        activity: "",
+        evaluation: "",
+        attendance: ""
+      };
+      const taA = el.journalBody.querySelector(`textarea[data-field="day${i}_activity"]`);
+      const taB = el.journalBody.querySelector(`textarea[data-field="day${i}_evaluation"]`);
+      const taC = el.journalBody.querySelector(`textarea[data-field="day${i}_attendance"]`);
+      row.activity = taA ? taA.value : "";
+      row.evaluation = taB ? taB.value : "";
+      row.attendance = taC ? taC.value : "";
+      data.journal.push(row);
+    }
+
+    return data;
+  }
+
+  // ===== 自動保存 =====
+  function autosave(){
+    const mondayIso = getMondayIsoFromCell();
+    if(!mondayIso) return; // 月曜未入力なら保存しない
+    const key = weekKey(mondayIso);
+    const data = collectData(mondayIso);
+    localStorage.setItem(key, JSON.stringify(data));
+    el.weekKeyView.textContent = key;
+    el.lastSavedView.textContent = data.updatedAt;
+  }
+
+  function getMondayIsoFromCell(){
+    const inp = document.getElementById("mondayInCell");
+    return inp ? (inp.value || "") : "";
+  }
+
+  // 入力イベントを間引く
+  let saveTimer = null;
+  function scheduleAutosave(){
+    refreshTopLabels();
+    if(saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try { autosave(); } catch(_) {}
+    }, 450);
+  }
+
+  // ===== 読み込み =====
+  function loadWeek(mondayIso){
+    buildJournalRows(mondayIso);
+    refreshTopLabels();
+
+    el.weekKeyView.textContent = mondayIso ? weekKey(mondayIso) : "未設定";
+    el.lastSavedView.textContent = "—";
+
+    if(!mondayIso){
+      // 新規：入力はそのまま
+      return;
+    }
+
+    const key = weekKey(mondayIso);
+    const raw = localStorage.getItem(key);
+    if(!raw){
+      // 保存がない週
+      return;
+    }
+
+    let data;
+    try{
+      data = JSON.parse(raw);
+    }catch(e){
+      alert("保存データの読み込みに失敗しました。");
+      return;
+    }
+
+    // 上段
+    el.monthNum.value = data.month ?? "";
+    el.weekNum.value = data.week ?? "";
+    el.classSelect.value = data.classKey ?? "";
+
+    // 週のねらい/行事
+    el.weeklyAim.value = data.weeklyAim ?? "";
+    el.events.value = data.events ?? "";
+
+    // 日誌
+    const journal = Array.isArray(data.journal) ? data.journal : [];
+    for(let i=0;i<6;i++){
+      const row = journal[i] || {};
+      const taA = el.journalBody.querySelector(`textarea[data-field="day${i}_activity"]`);
+      const taB = el.journalBody.querySelector(`textarea[data-field="day${i}_evaluation"]`);
+      const taC = el.journalBody.querySelector(`textarea[data-field="day${i}_attendance"]`);
+      if(taA) taA.value = row.activity || "";
+      if(taB) taB.value = row.evaluation || "";
+      if(taC) taC.value = row.attendance || "";
+    }
+
+    // 1週間評価
+    el.weeklyEvaluation.value = data.weeklyEvaluation ?? "";
+
+    // 個別
+    el.case1Date.value = data.individual?.[0]?.dateIso ?? "";
+    el.case1Text.value = data.individual?.[0]?.text ?? "";
+    el.case2Date.value = data.individual?.[1]?.dateIso ?? "";
+    el.case2Text.value = data.individual?.[1]?.text ?? "";
+
+    refreshTopLabels();
+    el.weekKeyView.textContent = key;
+    el.lastSavedView.textContent = data.updatedAt || "—";
+  }
+
+  // ===== 月曜変更（セル内カレンダーから呼ぶ） =====
+  function onMondayChanged(newMondayIso){
+    // 月曜セル内に新しい値が入った → 週を切り替える
+    loadWeek(newMondayIso);
+    scheduleAutosave();
+  }
+  // グローバル化せず、buildJournalRows内から参照できるように束縛
+  window.__onMondayChanged = onMondayChanged; // 念のため（デバッグ用）
+
+  // ===== 週削除 =====
+  function clearThisWeek(){
+    const mondayIso = getMondayIsoFromCell();
+    if(!mondayIso){
+      alert("月曜日（日付）を先に選んでください。");
+      return;
+    }
+    const key = weekKey(mondayIso);
+    if(!confirm("この週の保存データを消去します。よろしいですか？")) return;
+
+    localStorage.removeItem(key);
+
+    // 入力をクリア（上段は残す：運用しやすさ優先）
+    el.weeklyAim.value = "";
+    el.events.value = "";
+    el.weeklyEvaluation.value = "";
+    el.case1Date.value = "";
+    el.case1Text.value = "";
+    el.case2Date.value = "";
+    el.case2Text.value = "";
+    Array.from(el.journalBody.querySelectorAll("textarea")).forEach(t => t.value = "");
+
+    el.lastSavedView.textContent = "—";
+    scheduleAutosave();
+  }
+
+  // ===== CSV =====
+  function csvEscape(v){
+    const s = String(v ?? "");
+    if(/[",\n\r]/.test(s)){
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  function exportCSV(){
+    const mondayIso = getMondayIsoFromCell();
+    if(!mondayIso){
+      alert("月曜日（日付）を選んでからCSV出力してください。");
+      return;
+    }
+    const data = collectData(mondayIso);
+
+    const headers = [
+      "週", "クラス", "月曜(ISO)", "月曜(表示)", "週のねらい", "行事",
+      "月(表示)", "月_子どもの活動", "月_保育評価", "月_出欠",
+      "火(表示)", "火_子どもの活動", "火_保育評価", "火_出欠",
+      "水(表示)", "水_子どもの活動", "水_保育評価", "水_出欠",
+      "木(表示)", "木_子どもの活動", "木_保育評価", "木_出欠",
+      "金(表示)", "金_子どもの活動", "金_保育評価", "金_出欠",
+      "土(表示)", "土_子どもの活動", "土_保育評価", "土_出欠",
+      "1週間の評価",
+      "個別1_日付(ISO)", "個別1_内容",
+      "個別2_日付(ISO)", "個別2_内容",
+      "更新日時"
+    ];
+
+    const row = [];
+    row.push(
+      data.weekLabel, data.classLabel,
+      data.mondayIso, data.mondayPretty,
+      data.weeklyAim, data.events
+    );
+
+    for(let i=0;i<6;i++){
+      const d = data.journal[i];
+      row.push(d.datePretty, d.activity, d.evaluation, d.attendance);
+    }
+
+    row.push(data.weeklyEvaluation);
+    row.push(data.individual[0].dateIso, data.individual[0].text);
+    row.push(data.individual[1].dateIso, data.individual[1].text);
+    row.push(data.updatedAt);
+
+    const csv = [
+      headers.map(csvEscape).join(","),
+      row.map(csvEscape).join(",")
+    ].join("\n");
+
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+
+    const safe = (s) => String(s||"").replace(/[\\/:*?"<>|]/g, "_").trim();
+    const fname = `${safe(data.weekLabel || "週案")}_${safe(data.classLabel || "クラス")}_${data.mondayIso || "date"}.csv`;
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // ===== イベント =====
+  el.btnExport.addEventListener("click", exportCSV);
+  el.btnClear.addEventListener("click", clearThisWeek);
+
+  // 上段・テキスト入力は自動保存
+  [
+    el.monthNum, el.weekNum, el.classSelect,
+    el.weeklyAim, el.events,
+    el.weeklyEvaluation,
+    el.case1Date, el.case1Text,
+    el.case2Date, el.case2Text
+  ].forEach(inp => {
+    inp.addEventListener("input", scheduleAutosave);
+    inp.addEventListener("change", scheduleAutosave);
+  });
+
+  // ===== 初期化 =====
+  refreshTopLabels();
+  loadWeek(""); // 月曜未設定で日誌を生成（カレンダーは月曜セル内）
+  el.weekKeyView.textContent = "未設定";
+  el.lastSavedView.textContent = "—";
+
+  // buildJournalRows内の月曜変更ハンドラで参照する関数
+  function onMondayChangedProxy(iso){ onMondayChanged(iso); }
+  // buildJournalRowsから呼ぶためにスコープを保持（直接参照できるようにする）
+  function onMondayChanged(iso){
+    loadWeek(iso);
+    scheduleAutosave();
+  }
+  // buildJournalRows内のイベントは、上のonMondayChangedを参照している
+})();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("./sw.js");
+  });
+}
+</script>
+</body>
+</html>
