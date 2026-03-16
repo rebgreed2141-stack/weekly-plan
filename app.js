@@ -13,6 +13,48 @@
   };
 
   const STORAGE_PREFIX = "shuan_demo_week_";
+  const BACKUP_HEADERS = [
+    "recordType",
+    "month",
+    "week",
+    "weekLabel",
+    "classKey",
+    "classLabel",
+    "mondayIso",
+    "mondayPretty",
+    "weeklyAim",
+    "events",
+    "weeklyEvaluation",
+    "case1Date",
+    "case1Text",
+    "case2Date",
+    "case2Text",
+    "day0Date",
+    "day0Activity",
+    "day0Evaluation",
+    "day0Attendance",
+    "day1Date",
+    "day1Activity",
+    "day1Evaluation",
+    "day1Attendance",
+    "day2Date",
+    "day2Activity",
+    "day2Evaluation",
+    "day2Attendance",
+    "day3Date",
+    "day3Activity",
+    "day3Evaluation",
+    "day3Attendance",
+    "day4Date",
+    "day4Activity",
+    "day4Evaluation",
+    "day4Attendance",
+    "day5Date",
+    "day5Activity",
+    "day5Evaluation",
+    "day5Attendance",
+    "updatedAt"
+  ];
 
   const el = {
     monthNum: document.getElementById("monthNum"),
@@ -37,20 +79,39 @@
     lastSavedView: document.getElementById("lastSavedView"),
 
     btnExport: document.getElementById("btnExport"),
-    btnClear: document.getElementById("btnClear")
+    btnClear: document.getElementById("btnClear"),
+
+    btnBackup: document.getElementById("btnBackup"),
+    btnRestore: document.getElementById("btnRestore"),
+    btnDeleteAll: document.getElementById("btnDeleteAll"),
+    restoreFileInput: document.getElementById("restoreFileInput"),
+
+    tabMainBtn: document.getElementById("tabMainBtn"),
+    tabManageBtn: document.getElementById("tabManageBtn"),
+    tabMain: document.getElementById("tabMain"),
+    tabManage: document.getElementById("tabManage")
   };
 
   const pad2 = (n) => String(n).padStart(2, "0");
 
   function parseISODate(iso) {
     if (!iso) return null;
-    const [y, m, d] = iso.split("-").map(Number);
-    if (!y || !m || !d) return null;
-    return new Date(y, m - 1, d, 12, 0, 0, 0);
+    const m = String(iso).trim().match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!m) return null;
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const d = Number(m[3]);
+    return new Date(y, mo - 1, d, 12, 0, 0, 0);
   }
 
   function toISO(dateObj) {
     return `${dateObj.getFullYear()}-${pad2(dateObj.getMonth() + 1)}-${pad2(dateObj.getDate())}`;
+  }
+
+  function toSlashDate(value) {
+    const dateObj = normalizeDateValue(value);
+    if (!dateObj) return "";
+    return `${dateObj.getFullYear()}/${pad2(dateObj.getMonth() + 1)}/${pad2(dateObj.getDate())}`;
   }
 
   function addDays(dateObj, days) {
@@ -72,6 +133,54 @@
   function nowIso() {
     const d = new Date();
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+  }
+
+  function excelSerialToDate(serial) {
+    const n = Number(serial);
+    if (!Number.isFinite(n)) return null;
+    const utcDays = Math.floor(n - 25569);
+    const utcValue = utcDays * 86400 * 1000;
+    const date = new Date(utcValue);
+    if (Number.isNaN(date.getTime())) return null;
+    return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0, 0);
+  }
+
+  function normalizeDateValue(value) {
+    if (value == null) return null;
+    const s = String(value).trim();
+    if (!s) return null;
+
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(s)) {
+      return parseISODate(s);
+    }
+
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)) {
+      const [y, m, d] = s.split("/").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0, 0);
+    }
+
+    if (/^\d{4}\.\d{1,2}\.\d{1,2}$/.test(s)) {
+      const [y, m, d] = s.split(".").map(Number);
+      return new Date(y, m - 1, d, 12, 0, 0, 0);
+    }
+
+    if (/^\d{8}$/.test(s)) {
+      const y = Number(s.slice(0, 4));
+      const m = Number(s.slice(4, 6));
+      const d = Number(s.slice(6, 8));
+      return new Date(y, m - 1, d, 12, 0, 0, 0);
+    }
+
+    if (/^\d+(\.\d+)?$/.test(s)) {
+      return excelSerialToDate(s);
+    }
+
+    return null;
+  }
+
+  function normalizeDateToISO(value) {
+    const dateObj = normalizeDateValue(value);
+    return dateObj ? toISO(dateObj) : "";
   }
 
   function getWeekLabel() {
@@ -149,7 +258,8 @@
         dateInput.id = "mondayInCell";
         dateInput.value = mondayIso || "";
         dateInput.addEventListener("change", () => {
-          const iso = dateInput.value || "";
+          const iso = normalizeDateToISO(dateInput.value || "");
+          dateInput.value = iso;
           onMondayChanged(iso);
         });
         tdDate.appendChild(dateInput);
@@ -265,6 +375,31 @@
     }, 450);
   }
 
+  function clearCurrentInputs(keepTop = true) {
+    if (!keepTop) {
+      el.monthNum.value = "";
+      el.weekNum.value = "";
+      el.classSelect.value = "";
+      const mondayInput = document.getElementById("mondayInCell");
+      if (mondayInput) mondayInput.value = "";
+    }
+
+    el.weeklyAim.value = "";
+    el.events.value = "";
+    el.weeklyEvaluation.value = "";
+    el.case1Date.value = "";
+    el.case1Text.value = "";
+    el.case2Date.value = "";
+    el.case2Text.value = "";
+
+    Array.from(el.journalBody.querySelectorAll("textarea")).forEach((t) => {
+      t.value = "";
+    });
+
+    refreshTopLabels();
+    el.lastSavedView.textContent = "—";
+  }
+
   function loadWeek(mondayIso) {
     buildJournalRows(mondayIso);
     refreshTopLabels();
@@ -273,6 +408,7 @@
     el.lastSavedView.textContent = "—";
 
     if (!mondayIso) {
+      clearCurrentInputs(true);
       return;
     }
 
@@ -280,6 +416,8 @@
     const raw = localStorage.getItem(key);
 
     if (!raw) {
+      clearCurrentInputs(true);
+      el.weekKeyView.textContent = key;
       return;
     }
 
@@ -312,9 +450,9 @@
 
     el.weeklyEvaluation.value = data.weeklyEvaluation ?? "";
 
-    el.case1Date.value = data.individual?.[0]?.dateIso ?? "";
+    el.case1Date.value = normalizeDateToISO(data.individual?.[0]?.dateIso ?? "");
     el.case1Text.value = data.individual?.[0]?.text ?? "";
-    el.case2Date.value = data.individual?.[1]?.dateIso ?? "";
+    el.case2Date.value = normalizeDateToISO(data.individual?.[1]?.dateIso ?? "");
     el.case2Text.value = data.individual?.[1]?.text ?? "";
 
     refreshTopLabels();
@@ -340,21 +478,26 @@
     if (!confirm("この週の保存データを消去します。よろしいですか？")) return;
 
     localStorage.removeItem(key);
+    clearCurrentInputs(true);
+    el.weekKeyView.textContent = key;
+  }
 
-    el.weeklyAim.value = "";
-    el.events.value = "";
-    el.weeklyEvaluation.value = "";
-    el.case1Date.value = "";
-    el.case1Text.value = "";
-    el.case2Date.value = "";
-    el.case2Text.value = "";
+  function deleteAllData() {
+    if (!confirm("アプリ内の全保存データを削除します。よろしいですか？")) return;
 
-    Array.from(el.journalBody.querySelectorAll("textarea")).forEach((t) => {
-      t.value = "";
-    });
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(STORAGE_PREFIX)) {
+        keys.push(k);
+      }
+    }
 
-    el.lastSavedView.textContent = "—";
-    scheduleAutosave();
+    keys.forEach((k) => localStorage.removeItem(k));
+
+    const currentMonday = getMondayIsoFromCell();
+    loadWeek(currentMonday || "");
+    alert("全データを削除しました。");
   }
 
   function csvEscape(v) {
@@ -365,7 +508,294 @@
     return s;
   }
 
-  function exportCSV() {
+  function dataToBackupRow(data) {
+    return {
+      recordType: "week",
+      month: data.month ?? "",
+      week: data.week ?? "",
+      weekLabel: data.weekLabel ?? "",
+      classKey: data.classKey ?? "",
+      classLabel: data.classLabel ?? "",
+      mondayIso: toSlashDate(data.mondayIso),
+      mondayPretty: data.mondayPretty ?? "",
+      weeklyAim: data.weeklyAim ?? "",
+      events: data.events ?? "",
+      weeklyEvaluation: data.weeklyEvaluation ?? "",
+      case1Date: toSlashDate(data.individual?.[0]?.dateIso ?? ""),
+      case1Text: data.individual?.[0]?.text ?? "",
+      case2Date: toSlashDate(data.individual?.[1]?.dateIso ?? ""),
+      case2Text: data.individual?.[1]?.text ?? "",
+      day0Date: toSlashDate(data.journal?.[0]?.dateIso ?? ""),
+      day0Activity: data.journal?.[0]?.activity ?? "",
+      day0Evaluation: data.journal?.[0]?.evaluation ?? "",
+      day0Attendance: data.journal?.[0]?.attendance ?? "",
+      day1Date: toSlashDate(data.journal?.[1]?.dateIso ?? ""),
+      day1Activity: data.journal?.[1]?.activity ?? "",
+      day1Evaluation: data.journal?.[1]?.evaluation ?? "",
+      day1Attendance: data.journal?.[1]?.attendance ?? "",
+      day2Date: toSlashDate(data.journal?.[2]?.dateIso ?? ""),
+      day2Activity: data.journal?.[2]?.activity ?? "",
+      day2Evaluation: data.journal?.[2]?.evaluation ?? "",
+      day2Attendance: data.journal?.[2]?.attendance ?? "",
+      day3Date: toSlashDate(data.journal?.[3]?.dateIso ?? ""),
+      day3Activity: data.journal?.[3]?.activity ?? "",
+      day3Evaluation: data.journal?.[3]?.evaluation ?? "",
+      day3Attendance: data.journal?.[3]?.attendance ?? "",
+      day4Date: toSlashDate(data.journal?.[4]?.dateIso ?? ""),
+      day4Activity: data.journal?.[4]?.activity ?? "",
+      day4Evaluation: data.journal?.[4]?.evaluation ?? "",
+      day4Attendance: data.journal?.[4]?.attendance ?? "",
+      day5Date: toSlashDate(data.journal?.[5]?.dateIso ?? ""),
+      day5Activity: data.journal?.[5]?.activity ?? "",
+      day5Evaluation: data.journal?.[5]?.evaluation ?? "",
+      day5Attendance: data.journal?.[5]?.attendance ?? "",
+      updatedAt: data.updatedAt ?? ""
+    };
+  }
+
+  function downloadCsv(csvText, fileName) {
+    const csvWithBom = "\uFEFF" + csvText;
+    const blob = new Blob([csvWithBom], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  }
+
+  function backupAllData() {
+    const rows = [];
+
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(STORAGE_PREFIX)) {
+        keys.push(k);
+      }
+    }
+
+    keys.sort();
+
+    keys.forEach((key) => {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        rows.push(dataToBackupRow(data));
+      } catch (_) {}
+    });
+
+    const csvLines = [];
+    csvLines.push(BACKUP_HEADERS.map(csvEscape).join(","));
+    rows.forEach((rowObj) => {
+      const row = BACKUP_HEADERS.map((h) => csvEscape(rowObj[h] ?? ""));
+      csvLines.push(row.join(","));
+    });
+
+    const csv = csvLines.join("\r\n");
+    const fileName = `週案日誌バックアップ_${nowIso().replace(/[: ]/g, "-")}.csv`;
+    downloadCsv(csv, fileName);
+  }
+
+  function parseCSV(text) {
+    const rows = [];
+    let row = [];
+    let cell = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') {
+            cell += '"';
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          cell += ch;
+        }
+      } else {
+        if (ch === '"') {
+          inQuotes = true;
+        } else if (ch === ",") {
+          row.push(cell);
+          cell = "";
+        } else if (ch === "\n") {
+          row.push(cell);
+          rows.push(row);
+          row = [];
+          cell = "";
+        } else if (ch === "\r") {
+        } else {
+          cell += ch;
+        }
+      }
+    }
+
+    if (cell.length > 0 || row.length > 0) {
+      row.push(cell);
+      rows.push(row);
+    }
+
+    return rows.filter((r) => !(r.length === 1 && r[0] === ""));
+  }
+
+  function rowToObject(headers, row) {
+    const obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = row[i] ?? "";
+    });
+    return obj;
+  }
+
+  function objectToStoredData(obj) {
+    const mondayIso = normalizeDateToISO(obj.mondayIso);
+    if (!mondayIso) return null;
+
+    const monday = parseISODate(mondayIso);
+    const journal = [];
+
+    for (let i = 0; i < 6; i++) {
+      const computedDate = monday ? addDays(monday, i) : null;
+      const dateIso = normalizeDateToISO(obj[`day${i}Date`]) || (computedDate ? toISO(computedDate) : "");
+      const dateObj = parseISODate(dateIso);
+
+      journal.push({
+        dateIso,
+        datePretty: dateObj ? formatMDJpDow(dateObj) : "",
+        activity: obj[`day${i}Activity`] ?? "",
+        evaluation: obj[`day${i}Evaluation`] ?? "",
+        attendance: obj[`day${i}Attendance`] ?? ""
+      });
+    }
+
+    const data = {
+      month: obj.month ? Number(obj.month) : "",
+      week: obj.week ? Number(obj.week) : "",
+      weekLabel: obj.weekLabel || "",
+      classKey: obj.classKey || "",
+      classLabel: obj.classLabel || "",
+      mondayIso,
+      mondayPretty: monday ? formatMDJpDow(monday) : "",
+      weeklyAim: obj.weeklyAim || "",
+      events: obj.events || "",
+      journal,
+      weeklyEvaluation: obj.weeklyEvaluation || "",
+      individual: [
+        {
+          dateIso: normalizeDateToISO(obj.case1Date),
+          text: obj.case1Text || ""
+        },
+        {
+          dateIso: normalizeDateToISO(obj.case2Date),
+          text: obj.case2Text || ""
+        }
+      ],
+      updatedAt: obj.updatedAt || nowIso()
+    };
+
+    return data;
+  }
+
+  function restoreFromCSVText(text) {
+    const rows = parseCSV(text);
+    if (!rows.length) {
+      alert("CSVにデータがありません。");
+      return;
+    }
+
+    const headers = rows[0].map((h) => String(h || "").trim().replace(/^\uFEFF/, ""));
+    const missing = BACKUP_HEADERS.filter((h) => !headers.includes(h));
+    if (missing.length) {
+      alert("復元用CSVの項目が不足しています。");
+      return;
+    }
+
+    let count = 0;
+
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row || row.every((v) => String(v || "").trim() === "")) continue;
+
+      const obj = rowToObject(headers, row);
+      if ((obj.recordType || "").trim() !== "week") continue;
+
+      const data = objectToStoredData(obj);
+      if (!data || !data.mondayIso) continue;
+
+      localStorage.setItem(weekKey(data.mondayIso), JSON.stringify(data));
+      count++;
+    }
+
+    const currentMonday = getMondayIsoFromCell();
+    if (currentMonday) {
+      loadWeek(currentMonday);
+    }
+
+    alert(`復元完了：${count}件`);
+  }
+
+  function decodeArrayBuffer(buffer, encoding) {
+    try {
+      return new TextDecoder(encoding).decode(buffer);
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function chooseDecodedCsvText(buffer) {
+    const utf8Text = decodeArrayBuffer(buffer, "utf-8");
+    const sjisText = decodeArrayBuffer(buffer, "shift_jis");
+
+    const utf8Score = scoreJapaneseText(utf8Text);
+    const sjisScore = scoreJapaneseText(sjisText);
+
+    return sjisScore > utf8Score ? sjisText : utf8Text;
+  }
+
+  function scoreJapaneseText(text) {
+    if (!text) return -999999;
+
+    let score = 0;
+
+    if (text.includes("recordType")) score += 30;
+    if (text.includes("weeklyAim")) score += 30;
+    if (text.includes("case1Text")) score += 30;
+    if (text.includes("週案")) score += 10;
+    if (text.includes("育")) score += 5;
+    if (text.includes("日誌")) score += 5;
+
+    const mojibakeMatches = text.match(/[�Ã¢ã¤æ¥œ]/g);
+    if (mojibakeMatches) score -= mojibakeMatches.length * 2;
+
+    const japaneseMatches = text.match(/[ぁ-んァ-ヶ一-龠]/g);
+    if (japaneseMatches) score += japaneseMatches.length;
+
+    return score;
+  }
+
+  function handleRestoreFile(file) {
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const buffer = reader.result;
+      const text = chooseDecodedCsvText(buffer);
+      restoreFromCSVText(text);
+      el.restoreFileInput.value = "";
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function exportCurrentWeekCSV() {
     const mondayIso = getMondayIsoFromCell();
 
     if (!mondayIso) {
@@ -376,16 +806,16 @@
     const data = collectData(mondayIso);
 
     const headers = [
-      "週", "クラス", "月曜(ISO)", "月曜(表示)", "週のねらい", "行事",
-      "月(表示)", "月_子どもの活動", "月_保育評価", "月_出欠",
-      "火(表示)", "火_子どもの活動", "火_保育評価", "火_出欠",
-      "水(表示)", "水_子どもの活動", "水_保育評価", "水_出欠",
-      "木(表示)", "木_子どもの活動", "木_保育評価", "木_出欠",
-      "金(表示)", "金_子どもの活動", "金_保育評価", "金_出欠",
-      "土(表示)", "土_子どもの活動", "土_保育評価", "土_出欠",
+      "週", "クラス", "月曜", "週のねらい", "行事",
+      "月", "月_子どもの活動", "月_保育評価", "月_出欠",
+      "火", "火_子どもの活動", "火_保育評価", "火_出欠",
+      "水", "水_子どもの活動", "水_保育評価", "水_出欠",
+      "木", "木_子どもの活動", "木_保育評価", "木_出欠",
+      "金", "金_子どもの活動", "金_保育評価", "金_出欠",
+      "土", "土_子どもの活動", "土_保育評価", "土_出欠",
       "1週間の評価",
-      "個別1_日付(ISO)", "個別1_内容",
-      "個別2_日付(ISO)", "個別2_内容",
+      "個別1_日付", "個別1_内容",
+      "個別2_日付", "個別2_内容",
       "更新日時"
     ];
 
@@ -393,45 +823,58 @@
     row.push(
       data.weekLabel,
       data.classLabel,
-      data.mondayIso,
-      data.mondayPretty,
+      toSlashDate(data.mondayIso),
       data.weeklyAim,
       data.events
     );
 
     for (let i = 0; i < 6; i++) {
       const d = data.journal[i];
-      row.push(d.datePretty, d.activity, d.evaluation, d.attendance);
+      row.push(
+        toSlashDate(d.dateIso),
+        d.activity,
+        d.evaluation,
+        d.attendance
+      );
     }
 
     row.push(data.weeklyEvaluation);
-    row.push(data.individual[0].dateIso, data.individual[0].text);
-    row.push(data.individual[1].dateIso, data.individual[1].text);
+    row.push(toSlashDate(data.individual[0].dateIso), data.individual[0].text);
+    row.push(toSlashDate(data.individual[1].dateIso), data.individual[1].text);
     row.push(data.updatedAt);
 
     const csv = [
       headers.map(csvEscape).join(","),
       row.map(csvEscape).join(",")
-    ].join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+    ].join("\r\n");
 
     const safe = (s) => String(s || "").replace(/[\\/:*?"<>|]/g, "_").trim();
-    const fname = `${safe(data.weekLabel || "週案")}_${safe(data.classLabel || "クラス")}_${data.mondayIso || "date"}.csv`;
+    const fname = `${safe(data.weekLabel || "週案")}_${safe(data.classLabel || "クラス")}_${toSlashDate(data.mondayIso).replace(/\//g, "-") || "date"}.csv`;
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fname;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    URL.revokeObjectURL(url);
+    downloadCsv(csv, fname);
   }
 
-  el.btnExport.addEventListener("click", exportCSV);
+  function activateTab(tabName) {
+    const isMain = tabName === "main";
+    el.tabMain.classList.toggle("active", isMain);
+    el.tabManage.classList.toggle("active", !isMain);
+    el.tabMainBtn.classList.toggle("active", isMain);
+    el.tabManageBtn.classList.toggle("active", !isMain);
+  }
+
+  el.tabMainBtn.addEventListener("click", () => activateTab("main"));
+  el.tabManageBtn.addEventListener("click", () => activateTab("manage"));
+
+  el.btnExport.addEventListener("click", exportCurrentWeekCSV);
   el.btnClear.addEventListener("click", clearThisWeek);
+  el.btnBackup.addEventListener("click", backupAllData);
+  el.btnRestore.addEventListener("click", () => el.restoreFileInput.click());
+  el.btnDeleteAll.addEventListener("click", deleteAllData);
+
+  el.restoreFileInput.addEventListener("change", (event) => {
+    const file = event.target.files && event.target.files[0];
+    handleRestoreFile(file);
+  });
 
   [
     el.monthNum,
@@ -453,6 +896,7 @@
   loadWeek("");
   el.weekKeyView.textContent = "未設定";
   el.lastSavedView.textContent = "—";
+  activateTab("main");
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {

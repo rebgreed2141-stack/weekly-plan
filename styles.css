@@ -7,7 +7,6 @@
   --fg: #1f2328;
   --muted:#6b7280;
   --soft:#f7f7f7;
-
   --ta-h: 84px;
   --short-h: 140px;
 }
@@ -24,48 +23,48 @@ body{
 }
 
 .app{
-  width: min(100vw, var(--w));
-  margin: 0 auto;
-  padding: 12px;
-  overflow-x: hidden;
+  width:min(100vw, var(--w));
+  margin:0 auto;
+  padding:12px;
+  overflow-x:hidden;
 }
 
 .header{
   display:flex;
   align-items:flex-end;
   justify-content:space-between;
-  gap: var(--gap);
-  flex-wrap: wrap;
-  margin-bottom: 10px;
+  gap:var(--gap);
+  flex-wrap:wrap;
+  margin-bottom:10px;
 }
 
 .title{
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
+  font-size:18px;
+  font-weight:800;
+  line-height:1.2;
 }
 
 .sub{
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 4px;
+  font-size:12px;
+  color:var(--muted);
+  margin-top:4px;
 }
 
 .actions{
   display:flex;
-  gap: 8px;
+  gap:8px;
   flex-wrap:wrap;
   justify-content:flex-end;
 }
 
 button{
-  border: 1px solid var(--bd);
+  border:1px solid var(--bd);
   background:#fff;
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-weight: 800;
-  cursor: pointer;
-  white-space: nowrap;
+  padding:8px 10px;
+  border-radius:10px;
+  font-weight:800;
+  cursor:pointer;
+  white-space:nowrap;
 }
 
 button.primary{
@@ -79,178 +78,216 @@ button.danger{
   border-color:#f1caca;
 }
 
+.tabBar{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+}
+
+.tabBtn{
+  min-width:92px;
+}
+
+.tabBtn.active{
+  background:#111827;
+  color:#fff;
+  border-color:#111827;
+}
+
+.tabPanel{
+  display:none;
+}
+
+.tabPanel.active{
+  display:block;
+}
+
 .card{
-  background: var(--card);
-  border: 1px solid var(--bd);
-  border-radius: 14px;
-  padding: 12px;
-  margin-bottom: 10px;
+  background:var(--card);
+  border:1px solid var(--bd);
+  border-radius:14px;
+  padding:12px;
+  margin-bottom:10px;
 }
 
 .row{
   display:grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  grid-template-columns:1fr;
+  gap:8px;
 }
 
 .topGrid{
   display:grid;
-  grid-template-columns: 120px 1fr;
-  gap: var(--gap);
+  grid-template-columns:120px 1fr;
+  gap:var(--gap);
   align-items:center;
-  margin-bottom: 10px;
+  margin-bottom:10px;
 }
 
 .topGrid .inputs{
   display:grid;
-  grid-template-columns: 1fr 1fr 1.2fr;
-  gap: var(--gap);
+  grid-template-columns:1fr 1fr 1.2fr;
+  gap:var(--gap);
   align-items:center;
 }
 
 label{
-  font-size: 13px;
-  font-weight: 800;
+  font-size:13px;
+  font-weight:800;
 }
 
 input,
 select,
 textarea{
-  width: 100%;
-  border: 1px solid var(--bd);
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 14px;
+  width:100%;
+  border:1px solid var(--bd);
+  border-radius:10px;
+  padding:10px;
+  font-size:14px;
   background:#fff;
 }
 
 textarea{
-  resize: vertical;
-  line-height: 1.4;
+  resize:vertical;
+  line-height:1.4;
 }
 
 .autoLine{
   display:grid;
-  grid-template-columns: 120px 1fr;
-  gap: var(--gap);
+  grid-template-columns:120px 1fr;
+  gap:var(--gap);
   align-items:center;
-  margin-bottom: 10px;
+  margin-bottom:10px;
 }
 
 .autoValue{
-  border: 1px solid var(--bd);
-  border-radius: 10px;
-  padding: 10px;
-  background: var(--soft);
-  font-weight: 900;
+  border:1px solid var(--bd);
+  border-radius:10px;
+  padding:10px;
+  background:var(--soft);
+  font-weight:900;
 }
 
 table{
   width:100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  table-layout: fixed;
+  border-collapse:separate;
+  border-spacing:0;
+  table-layout:fixed;
 }
 
 th,
 td{
   border:1px solid var(--bd);
-  padding: 8px;
-  vertical-align: top;
+  padding:8px;
+  vertical-align:top;
   background:#fff;
 }
 
 th{
-  background: var(--soft);
-  font-size: 12px;
-  text-align: left;
-  font-weight: 900;
+  background:var(--soft);
+  font-size:12px;
+  text-align:left;
+  font-weight:900;
 }
 
 .colDate{
-  width: 110px;
+  width:110px;
 }
 
 .dateCell{
-  background: var(--soft);
-  font-weight: 900;
+  background:var(--soft);
+  font-weight:900;
 }
 
 .dateTop{
-  font-size: 14px;
-  margin-bottom: 6px;
+  font-size:14px;
+  margin-bottom:6px;
 }
 
 .dateSub{
-  font-size: 12px;
-  color: var(--muted);
-  margin-bottom: 8px;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:8px;
 }
 
 .datePickerInCell{
-  width: 100%;
-  padding: 8px;
-  font-size: 13px;
+  width:100%;
+  padding:8px;
+  font-size:13px;
 }
 
 .tarea{
-  height: var(--ta-h);
-  min-height: var(--ta-h);
+  height:var(--ta-h);
+  min-height:var(--ta-h);
 }
 
 .sectionTitle{
-  font-weight: 900;
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  font-weight:900;
+  margin:0 0 8px 0;
+  font-size:14px;
 }
 
 .shortArea{
-  height: var(--short-h);
-  min-height: var(--short-h);
+  height:var(--short-h);
+  min-height:var(--short-h);
 }
 
 .caseBox{
-  border: 1px solid var(--bd);
-  border-radius: 12px;
-  padding: 10px;
+  border:1px solid var(--bd);
+  border-radius:12px;
+  padding:10px;
   background:#fff;
-  margin-top: 10px;
+  margin-top:10px;
 }
 
 .caseHead{
   display:grid;
-  grid-template-columns: 120px 1fr;
-  gap: var(--gap);
+  grid-template-columns:120px 1fr;
+  gap:var(--gap);
   align-items:center;
-  margin-bottom: 8px;
+  margin-bottom:8px;
 }
 
 .statusbar{
-  font-size: 12px;
-  color: var(--muted);
+  font-size:12px;
+  color:var(--muted);
   display:flex;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.manageButtons{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
 }
 
 .mono{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
 @media (max-width: 520px){
   .topGrid .inputs{
-    grid-template-columns: 1fr;
+    grid-template-columns:1fr;
   }
 
   .autoLine{
-    grid-template-columns: 1fr;
+    grid-template-columns:1fr;
   }
 
   .topGrid{
-    grid-template-columns: 1fr;
+    grid-template-columns:1fr;
   }
 
   .caseHead{
-    grid-template-columns: 1fr;
+    grid-template-columns:1fr;
+  }
+
+  .manageButtons{
+    flex-direction:column;
+  }
+
+  .tabBar{
+    flex-wrap:wrap;
   }
 }

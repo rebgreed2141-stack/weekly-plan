@@ -1,4 +1,4 @@
-const CACHE_NAME = "weekly-plan-v2";
+const CACHE_NAME = "weekly-plan-v4";
 const CORE_ASSETS = [
   "./",
   "./index.html",
