@@ -63,7 +63,7 @@
       </div>
 
       <div class="card">
-        <div class="sectionTitle">日誌（月〜土）</div>
+        <div class="sectionTitle">日誌（開始日から6日分）</div>
         <table>
           <thead>
             <tr>
@@ -118,7 +118,7 @@
           <div class="calendarTitle" id="calendarTitle">—</div>
           <button type="button" id="btnNextMonth">次の月</button>
         </div>
-        <div class="calendarHelp">月曜日だけ選択できます。●は「子どもの活動」に入力がある日です。</div>
+        <div class="calendarHelp">月曜日を選択できます。4月1日が火〜土の年度だけ、その4月1日も選択できます。入力日は各クラスの頭文字（も・ど・こ・り・の・か）で表示します。</div>
 
         <div class="calendarWeekHeader">
           <div>日</div>
@@ -142,7 +142,7 @@
           <button type="button" id="btnRestore">データ復元</button>
           <button type="button" class="danger" id="btnDeleteAll">データ削除</button>
         </div>
-        <input type="file" id="restoreFileInput" accept=".csv,text/csv" hidden>
+        <input type="file" id="restoreFileInput" accept=".csv,.zip,text/csv,application/zip" hidden>
       </div>
 
       <div class="card">
