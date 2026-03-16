@@ -57,14 +57,10 @@
   ];
 
   const el = {
-    monthNum: document.getElementById("monthNum"),
-    weekNum: document.getElementById("weekNum"),
     classSelect: document.getElementById("classSelect"),
 
     weekLabel: document.getElementById("weekLabel"),
     classLabel: document.getElementById("classLabel"),
-    selectedMondayLabel: document.getElementById("selectedMondayLabel"),
-    inputPanelMonthWeek: document.getElementById("inputPanelMonthWeek"),
 
     weeklyAim: document.getElementById("weeklyAim"),
     events: document.getElementById("events"),
@@ -80,7 +76,6 @@
     weekKeyView: document.getElementById("weekKeyView"),
     lastSavedView: document.getElementById("lastSavedView"),
 
-    btnExport: document.getElementById("btnExport"),
     btnClear: document.getElementById("btnClear"),
 
     btnBackup: document.getElementById("btnBackup"),
@@ -108,6 +103,8 @@
       month: today.getMonth() + 1
     };
   })();
+
+  let currentMondayIso = "";
 
   const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -208,11 +205,24 @@
     return dateObj ? toISO(dateObj) : "";
   }
 
-  function getWeekLabel() {
-    const m = Number(el.monthNum.value);
-    const w = Number(el.weekNum.value);
-    if (!m || !w) return "";
-    return `${m}月第${w}週`;
+  function getWeekInfoByMondayIso(mondayIso) {
+    const monday = parseISODate(mondayIso);
+    if (!monday) {
+      return { month: "", week: "", weekLabel: "" };
+    }
+
+    const month = monday.getMonth() + 1;
+    const firstDay = createLocalDate(monday.getFullYear(), month, 1);
+    const offsetToMonday = (8 - firstDay.getDay()) % 7;
+    const firstMonday = addDays(firstDay, offsetToMonday);
+    const diffDays = Math.floor((monday - firstMonday) / 86400000);
+    const week = diffDays >= 0 ? Math.floor(diffDays / 7) + 1 : 1;
+
+    return {
+      month,
+      week,
+      weekLabel: `${month}月第${week}週`
+    };
   }
 
   function getClassLabel() {
@@ -223,28 +233,16 @@
   }
 
   function refreshTopLabels() {
-    const wk = getWeekLabel();
+    const weekInfo = getWeekInfoByMondayIso(currentMondayIso);
     const cl = getClassLabel();
-    const mondayIso = getMondayIsoFromCell();
-    const monday = parseISODate(mondayIso);
 
-    el.weekLabel.textContent = wk || "—";
+    el.weekLabel.textContent = weekInfo.weekLabel || "—";
     el.classLabel.textContent = cl || "—";
-    el.selectedMondayLabel.textContent = monday ? formatYMDSlash(monday) : "—";
-
-    const mText = el.monthNum.value ? `${el.monthNum.value}月` : "—月";
-    const wText = el.weekNum.value ? `第${el.weekNum.value}週` : "第—週";
-    el.inputPanelMonthWeek.textContent = `${mText}　${wText}`;
   }
 
   function weekKey(mondayIso) {
     if (!mondayIso) return "";
     return STORAGE_PREFIX + mondayIso;
-  }
-
-  function getMondayIsoFromCell() {
-    const inp = document.getElementById("mondayInCell");
-    return inp ? (inp.value || "") : "";
   }
 
   function hookJournalAutosave() {
@@ -284,20 +282,6 @@
       tdDate.appendChild(top);
       tdDate.appendChild(sub);
 
-      if (i === 0) {
-        const dateInput = document.createElement("input");
-        dateInput.type = "date";
-        dateInput.className = "datePickerInCell";
-        dateInput.id = "mondayInCell";
-        dateInput.value = mondayIso || "";
-        dateInput.addEventListener("change", () => {
-          const iso = normalizeDateToISO(dateInput.value || "");
-          dateInput.value = iso;
-          onMondayChanged(iso);
-        });
-        tdDate.appendChild(dateInput);
-      }
-
       const tdA = document.createElement("td");
       const tdB = document.createElement("td");
       const tdC = document.createElement("td");
@@ -335,11 +319,12 @@
 
   function collectData(mondayIso) {
     const monday = parseISODate(mondayIso);
+    const weekInfo = getWeekInfoByMondayIso(mondayIso);
 
     const data = {
-      month: el.monthNum.value ? Number(el.monthNum.value) : "",
-      week: el.weekNum.value ? Number(el.weekNum.value) : "",
-      weekLabel: getWeekLabel(),
+      month: weekInfo.month,
+      week: weekInfo.week,
+      weekLabel: weekInfo.weekLabel,
       classKey: el.classSelect.value || "",
       classLabel: getClassLabel(),
 
@@ -385,15 +370,15 @@
   }
 
   function autosave() {
-    const mondayIso = getMondayIsoFromCell();
-    if (!mondayIso) return;
+    if (!currentMondayIso) return;
 
-    const key = weekKey(mondayIso);
-    const data = collectData(mondayIso);
+    const key = weekKey(currentMondayIso);
+    const data = collectData(currentMondayIso);
 
     localStorage.setItem(key, JSON.stringify(data));
     el.weekKeyView.textContent = key;
     el.lastSavedView.textContent = data.updatedAt;
+    refreshTopLabels();
     renderCalendar();
   }
 
@@ -419,13 +404,9 @@
     }, 450);
   }
 
-  function clearCurrentInputs(keepTop = true) {
-    if (!keepTop) {
-      el.monthNum.value = "";
-      el.weekNum.value = "";
+  function clearCurrentInputs(keepClass = true) {
+    if (!keepClass) {
       el.classSelect.value = "";
-      const mondayInput = document.getElementById("mondayInCell");
-      if (mondayInput) mondayInput.value = "";
     }
 
     el.weeklyAim.value = "";
@@ -452,29 +433,29 @@
   }
 
   function loadWeek(mondayIso) {
-    buildJournalRows(mondayIso);
+    currentMondayIso = mondayIso || "";
+    buildJournalRows(currentMondayIso);
     refreshTopLabels();
 
-    el.weekKeyView.textContent = mondayIso ? weekKey(mondayIso) : "未設定";
+    el.weekKeyView.textContent = currentMondayIso ? weekKey(currentMondayIso) : "未設定";
     el.lastSavedView.textContent = "—";
 
-    if (mondayIso) {
-      setCalendarMonthByIso(mondayIso);
+    if (currentMondayIso) {
+      setCalendarMonthByIso(currentMondayIso);
     }
 
-    if (!mondayIso) {
-      clearCurrentInputs(true);
+    if (!currentMondayIso) {
+      clearCurrentInputs(false);
       renderCalendar();
       return;
     }
 
-    const key = weekKey(mondayIso);
+    const key = weekKey(currentMondayIso);
     const raw = localStorage.getItem(key);
 
     if (!raw) {
+      el.classSelect.value = "";
       clearCurrentInputs(true);
-      const mondayInput = document.getElementById("mondayInCell");
-      if (mondayInput) mondayInput.value = mondayIso;
       el.weekKeyView.textContent = key;
       refreshTopLabels();
       renderCalendar();
@@ -490,8 +471,6 @@
       return;
     }
 
-    el.monthNum.value = data.month ?? "";
-    el.weekNum.value = data.week ?? "";
     el.classSelect.value = data.classKey ?? "";
 
     el.weeklyAim.value = data.weeklyAim ?? "";
@@ -516,45 +495,56 @@
     el.case2Date.value = normalizeDateToISO(data.individual?.[1]?.dateIso ?? "");
     el.case2Text.value = data.individual?.[1]?.text ?? "";
 
-    const mondayInput = document.getElementById("mondayInCell");
-    if (mondayInput) mondayInput.value = mondayIso;
-
     refreshTopLabels();
     el.weekKeyView.textContent = key;
     el.lastSavedView.textContent = data.updatedAt || "—";
     renderCalendar();
   }
 
-  function onMondayChanged(newMondayIso) {
-    loadWeek(newMondayIso);
-    scheduleAutosave();
-  }
-
   function clearThisWeek() {
-    const mondayIso = getMondayIsoFromCell();
-
-    if (!mondayIso) {
-      alert("月曜日（日付）を先に選んでください。");
+    if (!currentMondayIso) {
+      alert("カレンダーで月曜日を先に選んでください。");
       return;
     }
 
-    const key = weekKey(mondayIso);
+    const key = weekKey(currentMondayIso);
 
     if (!confirm("この週の保存データを消去します。よろしいですか？")) return;
 
     localStorage.removeItem(key);
+    el.classSelect.value = "";
     clearCurrentInputs(true);
-
-    const mondayInput = document.getElementById("mondayInCell");
-    if (mondayInput) mondayInput.value = mondayIso;
-
     el.weekKeyView.textContent = key;
     refreshTopLabels();
     renderCalendar();
   }
 
+  function resetAppToInitialState() {
+    flushAutosave();
+    currentMondayIso = "";
+    buildJournalRows("");
+    el.classSelect.value = "";
+    el.weeklyAim.value = "";
+    el.events.value = "";
+    el.weeklyEvaluation.value = "";
+    el.case1Date.value = "";
+    el.case1Text.value = "";
+    el.case2Date.value = "";
+    el.case2Text.value = "";
+    el.restoreFileInput.value = "";
+    el.weekKeyView.textContent = "未設定";
+    el.lastSavedView.textContent = "—";
+    refreshTopLabels();
+    activateTab("main");
+    renderCalendar();
+  }
+
   function deleteAllData() {
-    if (!confirm("アプリ内の全保存データを削除します。よろしいですか？")) return;
+    const confirmed = window.prompt('初期化を実行するには「削除」と入力してください。', '');
+    if (confirmed !== '削除') {
+      alert('初期化を中止しました。');
+      return;
+    }
 
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -565,10 +555,8 @@
     }
 
     keys.forEach((k) => localStorage.removeItem(k));
-
-    const currentMonday = getMondayIsoFromCell();
-    loadWeek(currentMonday || "");
-    alert("全データを削除しました。");
+    resetAppToInitialState();
+    alert('初期化しました。必要ならバックアップCSVから復元してください。');
   }
 
   function csvEscape(v) {
@@ -639,12 +627,12 @@
     URL.revokeObjectURL(url);
   }
 
-  function backupAllData() {
+  async function backupAllData() {
     flushAutosave();
 
     const rows = [];
-
     const keys = [];
+
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
       if (k && k.startsWith(STORAGE_PREFIX)) {
@@ -667,12 +655,24 @@
     csvLines.push(BACKUP_HEADERS.map(csvEscape).join(","));
     rows.forEach((rowObj) => {
       const row = BACKUP_HEADERS.map((h) => csvEscape(rowObj[h] ?? ""));
-      csvLines.push(row.join(","));
+      csvLines.push(row.join("\r\n").includes("\r\n") ? row.join(",") : row.join(","));
     });
 
     const csv = csvLines.join("\r\n");
-    const fileName = `週案日誌バックアップ_${nowIso().replace(/[: ]/g, "-")}.csv`;
-    downloadCsv(csv, fileName);
+    const zip = new JSZip();
+    zip.file("weekly-plan-backup.csv", "\uFEFF" + csv);
+
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `週案日誌バックアップ_${nowIso().replace(/[: ]/g, "-")}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
   }
 
   function parseCSV(text) {
@@ -734,6 +734,7 @@
     if (!mondayIso) return null;
 
     const monday = parseISODate(mondayIso);
+    const weekInfo = getWeekInfoByMondayIso(mondayIso);
     const journal = [];
 
     for (let i = 0; i < 6; i++) {
@@ -750,10 +751,10 @@
       });
     }
 
-    const data = {
-      month: obj.month ? Number(obj.month) : "",
-      week: obj.week ? Number(obj.week) : "",
-      weekLabel: obj.weekLabel || "",
+    return {
+      month: weekInfo.month,
+      week: weekInfo.week,
+      weekLabel: weekInfo.weekLabel,
       classKey: obj.classKey || "",
       classLabel: obj.classLabel || "",
       mondayIso,
@@ -774,8 +775,6 @@
       ],
       updatedAt: obj.updatedAt || nowIso()
     };
-
-    return data;
   }
 
   function restoreFromCSVText(text) {
@@ -808,9 +807,8 @@
       count++;
     }
 
-    const currentMonday = getMondayIsoFromCell();
-    if (currentMonday) {
-      loadWeek(currentMonday);
+    if (currentMondayIso) {
+      loadWeek(currentMondayIso);
     } else {
       renderCalendar();
     }
@@ -857,8 +855,27 @@
     return score;
   }
 
-  function handleRestoreFile(file) {
+  async function handleRestoreFile(file) {
     if (!file) return;
+
+    const lowerName = String(file.name || "").toLowerCase();
+
+    if (lowerName.endsWith(".zip")) {
+      const arrayBuffer = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      const csvEntry = Object.values(zip.files).find((f) => !f.dir && f.name.toLowerCase().endsWith(".csv"));
+
+      if (!csvEntry) {
+        alert("ZIP内にCSVがありません。");
+        el.restoreFileInput.value = "";
+        return;
+      }
+
+      const csvText = await csvEntry.async("string");
+      restoreFromCSVText(csvText);
+      el.restoreFileInput.value = "";
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -868,67 +885,6 @@
       el.restoreFileInput.value = "";
     };
     reader.readAsArrayBuffer(file);
-  }
-
-  function exportCurrentWeekCSV() {
-    flushAutosave();
-
-    const mondayIso = getMondayIsoFromCell();
-
-    if (!mondayIso) {
-      alert("月曜日（日付）を選んでからCSV出力してください。");
-      return;
-    }
-
-    const data = collectData(mondayIso);
-
-    const headers = [
-      "週", "クラス", "月曜", "週のねらい", "行事",
-      "月", "月_子どもの活動", "月_保育評価", "月_出欠",
-      "火", "火_子どもの活動", "火_保育評価", "火_出欠",
-      "水", "水_子どもの活動", "水_保育評価", "水_出欠",
-      "木", "木_子どもの活動", "木_保育評価", "木_出欠",
-      "金", "金_子どもの活動", "金_保育評価", "金_出欠",
-      "土", "土_子どもの活動", "土_保育評価", "土_出欠",
-      "1週間の評価",
-      "個別1_日付", "個別1_内容",
-      "個別2_日付", "個別2_内容",
-      "更新日時"
-    ];
-
-    const row = [];
-    row.push(
-      data.weekLabel,
-      data.classLabel,
-      toSlashDate(data.mondayIso),
-      data.weeklyAim,
-      data.events
-    );
-
-    for (let i = 0; i < 6; i++) {
-      const d = data.journal[i];
-      row.push(
-        toSlashDate(d.dateIso),
-        d.activity,
-        d.evaluation,
-        d.attendance
-      );
-    }
-
-    row.push(data.weeklyEvaluation);
-    row.push(toSlashDate(data.individual[0].dateIso), data.individual[0].text);
-    row.push(toSlashDate(data.individual[1].dateIso), data.individual[1].text);
-    row.push(data.updatedAt);
-
-    const csv = [
-      headers.map(csvEscape).join(","),
-      row.map(csvEscape).join(",")
-    ].join("\r\n");
-
-    const safe = (s) => String(s || "").replace(/[\\/:*?"<>|]/g, "_").trim();
-    const fname = `${safe(data.weekLabel || "週案")}_${safe(data.classLabel || "クラス")}_${toSlashDate(data.mondayIso).replace(/\//g, "-") || "date"}.csv`;
-
-    downloadCsv(csv, fname);
   }
 
   function getAllStoredWeeks() {
@@ -953,7 +909,6 @@
 
   function getActivityDateSet() {
     const set = new Set();
-    const currentMondayIso = getMondayIsoFromCell();
 
     if (currentMondayIso) {
       const currentData = collectData(currentMondayIso);
@@ -982,7 +937,6 @@
     const firstDay = createLocalDate(year, month, 1);
     const firstDow = firstDay.getDay();
     const startDate = addDays(firstDay, -firstDow);
-    const selectedMondayIso = getMondayIsoFromCell();
     const activityDateSet = getActivityDateSet();
 
     el.calendarTitle.textContent = `${year}年${month}月`;
@@ -993,7 +947,7 @@
       const cellIso = toISO(cellDate);
       const inCurrentMonth = cellDate.getMonth() + 1 === month;
       const isMonday = cellDate.getDay() === 1;
-      const isSelected = selectedMondayIso === cellIso;
+      const isSelected = currentMondayIso === cellIso;
       const hasActivity = activityDateSet.has(cellIso);
 
       const cell = document.createElement("div");
@@ -1008,7 +962,8 @@
         inner.className = "calendarCellInner isMonday";
         inner.addEventListener("click", () => {
           flushAutosave();
-          onMondayChanged(cellIso);
+          loadWeek(cellIso);
+          activateTab("main");
         });
       } else {
         inner = document.createElement("div");
@@ -1087,20 +1042,17 @@
   el.btnPrevMonth.addEventListener("click", () => moveCalendarMonth(-1));
   el.btnNextMonth.addEventListener("click", () => moveCalendarMonth(1));
 
-  el.btnExport.addEventListener("click", exportCurrentWeekCSV);
   el.btnClear.addEventListener("click", clearThisWeek);
   el.btnBackup.addEventListener("click", backupAllData);
   el.btnRestore.addEventListener("click", () => el.restoreFileInput.click());
   el.btnDeleteAll.addEventListener("click", deleteAllData);
 
-  el.restoreFileInput.addEventListener("change", (event) => {
+  el.restoreFileInput.addEventListener("change", async (event) => {
     const file = event.target.files && event.target.files[0];
-    handleRestoreFile(file);
+    await handleRestoreFile(file);
   });
 
   [
-    el.monthNum,
-    el.weekNum,
     el.classSelect,
     el.weeklyAim,
     el.events,

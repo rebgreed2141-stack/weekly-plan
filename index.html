@@ -18,9 +18,6 @@
         <div class="title">週案日誌</div>
         <div class="sub">自動保存（入力ごと） / 800×1280（縦）想定</div>
       </div>
-      <div class="actions">
-        <button class="primary" id="btnExport">CSV出力</button>
-      </div>
     </div>
 
     <div class="tabBar">
@@ -30,19 +27,12 @@
     </div>
 
     <section class="tabPanel active" id="tabMain">
-      <div class="panelHeadLine">
-        <span class="panelHeadMain">入力</span>
-        <span class="panelHeadMeta" id="inputPanelMonthWeek">—月　第—週</span>
-      </div>
-
       <div class="card">
-        <div class="topGrid">
-          <label>入力</label>
+        <div class="autoLine">
+          <label>クラス</label>
           <div class="inputs">
-            <input id="monthNum" type="number" min="1" max="12" placeholder="月（例：4）" />
-            <input id="weekNum" type="number" min="1" max="6" placeholder="週（例：1）" />
             <select id="classSelect">
-              <option value="">組（選択）</option>
+              <option value="">クラス（選択）</option>
               <option value="もみじ">もみじ</option>
               <option value="どんぐり">どんぐり</option>
               <option value="こぐま">こぐま</option>
@@ -57,13 +47,10 @@
           <label>週</label>
           <div class="autoValue" id="weekLabel">—</div>
         </div>
-        <div class="autoLine">
+
+        <div class="autoLine" style="margin-bottom:0;">
           <label>クラス</label>
           <div class="autoValue" id="classLabel">—</div>
-        </div>
-        <div class="autoLine" style="margin-bottom:0;">
-          <label>月曜日</label>
-          <div class="autoValue" id="selectedMondayLabel">—</div>
         </div>
       </div>
 
@@ -167,6 +154,7 @@
     </section>
   </div>
 
+  <script src="jszip.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
