@@ -1,10 +1,10 @@
-<!-- 初期アプリ、デモ用として制作 -->
+<!-- 初期アプリとして制作 -->
 <!doctype html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>週案日誌（デモ）</title>
+  <title>週案日誌</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4CAF50">
   <link rel="icon" href="icon-192.png">
@@ -15,7 +15,7 @@
   <div class="app">
     <div class="header">
       <div>
-        <div class="title">週案日誌（デモ）</div>
+        <div class="title">週案日誌</div>
         <div class="sub">自動保存（入力ごと） / 800×1280（縦）想定</div>
       </div>
       <div class="actions">
@@ -25,10 +25,16 @@
 
     <div class="tabBar">
       <button type="button" class="tabBtn active" id="tabMainBtn" data-tab="main">入力</button>
+      <button type="button" class="tabBtn" id="tabCalendarBtn" data-tab="calendar">カレンダー</button>
       <button type="button" class="tabBtn" id="tabManageBtn" data-tab="manage">管理</button>
     </div>
 
     <section class="tabPanel active" id="tabMain">
+      <div class="panelHeadLine">
+        <span class="panelHeadMain">入力</span>
+        <span class="panelHeadMeta" id="inputPanelMonthWeek">—月　第—週</span>
+      </div>
+
       <div class="card">
         <div class="topGrid">
           <label>入力</label>
@@ -51,9 +57,13 @@
           <label>週</label>
           <div class="autoValue" id="weekLabel">—</div>
         </div>
-        <div class="autoLine" style="margin-bottom:0;">
+        <div class="autoLine">
           <label>クラス</label>
           <div class="autoValue" id="classLabel">—</div>
+        </div>
+        <div class="autoLine" style="margin-bottom:0;">
+          <label>月曜日</label>
+          <div class="autoValue" id="selectedMondayLabel">—</div>
         </div>
       </div>
 
@@ -111,6 +121,29 @@
           <div>週キー：<span class="mono" id="weekKeyView">未設定</span></div>
           <div>最終保存：<span class="mono" id="lastSavedView">—</span></div>
         </div>
+      </div>
+    </section>
+
+    <section class="tabPanel" id="tabCalendar">
+      <div class="card">
+        <div class="calendarHead">
+          <button type="button" id="btnPrevMonth">前の月</button>
+          <div class="calendarTitle" id="calendarTitle">—</div>
+          <button type="button" id="btnNextMonth">次の月</button>
+        </div>
+        <div class="calendarHelp">月曜日だけ選択できます。●は「子どもの活動」に入力がある日です。</div>
+
+        <div class="calendarWeekHeader">
+          <div>日</div>
+          <div>月</div>
+          <div>火</div>
+          <div>水</div>
+          <div>木</div>
+          <div>金</div>
+          <div>土</div>
+        </div>
+
+        <div class="calendarGrid" id="calendarGrid"></div>
       </div>
     </section>
 

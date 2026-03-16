@@ -102,6 +102,25 @@ button.danger{
   display:block;
 }
 
+.panelHeadLine{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+  margin:0 0 10px 2px;
+}
+
+.panelHeadMain{
+  font-size:16px;
+  font-weight:900;
+}
+
+.panelHeadMeta{
+  font-size:15px;
+  font-weight:900;
+  color:#111827;
+}
+
 .card{
   background:var(--card);
   border:1px solid var(--bd);
@@ -262,8 +281,125 @@ th{
   flex-wrap:wrap;
 }
 
+.calendarHead{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:8px;
+  align-items:center;
+  margin-bottom:10px;
+}
+
+.calendarTitle{
+  text-align:center;
+  font-size:18px;
+  font-weight:900;
+}
+
+.calendarHelp{
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:10px;
+}
+
+.calendarWeekHeader{
+  display:grid;
+  grid-template-columns:repeat(7, 1fr);
+  gap:6px;
+  margin-bottom:6px;
+}
+
+.calendarWeekHeader div{
+  text-align:center;
+  font-size:12px;
+  font-weight:900;
+  color:var(--muted);
+}
+
+.calendarGrid{
+  display:grid;
+  grid-template-columns:repeat(7, 1fr);
+  gap:6px;
+}
+
+.calendarCell{
+  min-height:84px;
+  border:1px solid var(--bd);
+  border-radius:12px;
+  background:#fff;
+  padding:6px;
+  position:relative;
+}
+
+.calendarCell.otherMonth{
+  background:#fafafa;
+  color:#9ca3af;
+}
+
+.calendarCell.isSelected{
+  border-color:#111827;
+  box-shadow:inset 0 0 0 2px #111827;
+}
+
+.calendarCellInner{
+  width:100%;
+  height:100%;
+  border:none;
+  background:transparent;
+  padding:0;
+  margin:0;
+  text-align:left;
+  cursor:default;
+}
+
+.calendarCellInner.isMonday{
+  cursor:pointer;
+}
+
+.calendarCellInner.isMonday:hover{
+  opacity:0.92;
+}
+
+.calendarDayNum{
+  font-size:14px;
+  font-weight:900;
+}
+
+.calendarMondayMark{
+  display:inline-block;
+  margin-top:4px;
+  padding:2px 6px;
+  border-radius:999px;
+  background:#eef2ff;
+  color:#3730a3;
+  font-size:11px;
+  font-weight:900;
+}
+
+.calendarDotRow{
+  position:absolute;
+  left:6px;
+  right:6px;
+  bottom:6px;
+  display:flex;
+  justify-content:flex-start;
+  gap:4px;
+  min-height:14px;
+}
+
+.calendarDot{
+  font-size:14px;
+  line-height:1;
+  color:#111827;
+}
+
 .mono{
   font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+@media (max-width: 640px){
+  .calendarCell{
+    min-height:72px;
+  }
 }
 
 @media (max-width: 520px){
@@ -289,5 +425,13 @@ th{
 
   .tabBar{
     flex-wrap:wrap;
+  }
+
+  .calendarHead{
+    grid-template-columns:1fr;
+  }
+
+  .calendarTitle{
+    order:-1;
   }
 }

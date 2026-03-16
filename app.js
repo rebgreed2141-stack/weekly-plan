@@ -63,6 +63,8 @@
 
     weekLabel: document.getElementById("weekLabel"),
     classLabel: document.getElementById("classLabel"),
+    selectedMondayLabel: document.getElementById("selectedMondayLabel"),
+    inputPanelMonthWeek: document.getElementById("inputPanelMonthWeek"),
 
     weeklyAim: document.getElementById("weeklyAim"),
     events: document.getElementById("events"),
@@ -87,10 +89,25 @@
     restoreFileInput: document.getElementById("restoreFileInput"),
 
     tabMainBtn: document.getElementById("tabMainBtn"),
+    tabCalendarBtn: document.getElementById("tabCalendarBtn"),
     tabManageBtn: document.getElementById("tabManageBtn"),
     tabMain: document.getElementById("tabMain"),
-    tabManage: document.getElementById("tabManage")
+    tabCalendar: document.getElementById("tabCalendar"),
+    tabManage: document.getElementById("tabManage"),
+
+    btnPrevMonth: document.getElementById("btnPrevMonth"),
+    btnNextMonth: document.getElementById("btnNextMonth"),
+    calendarTitle: document.getElementById("calendarTitle"),
+    calendarGrid: document.getElementById("calendarGrid")
   };
+
+  const calendarState = (() => {
+    const today = new Date();
+    return {
+      year: today.getFullYear(),
+      month: today.getMonth() + 1
+    };
+  })();
 
   const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -102,6 +119,10 @@
     const mo = Number(m[2]);
     const d = Number(m[3]);
     return new Date(y, mo - 1, d, 12, 0, 0, 0);
+  }
+
+  function createLocalDate(year, month, day) {
+    return new Date(year, month - 1, day, 12, 0, 0, 0);
   }
 
   function toISO(dateObj) {
@@ -130,6 +151,10 @@
     return `${formatMD(dateObj)}（${jpDow[dateObj.getDay()]}）`;
   }
 
+  function formatYMDSlash(dateObj) {
+    return `${dateObj.getFullYear()}/${pad2(dateObj.getMonth() + 1)}/${pad2(dateObj.getDate())}`;
+  }
+
   function nowIso() {
     const d = new Date();
     return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
@@ -156,19 +181,19 @@
 
     if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(s)) {
       const [y, m, d] = s.split("/").map(Number);
-      return new Date(y, m - 1, d, 12, 0, 0, 0);
+      return createLocalDate(y, m, d);
     }
 
     if (/^\d{4}\.\d{1,2}\.\d{1,2}$/.test(s)) {
       const [y, m, d] = s.split(".").map(Number);
-      return new Date(y, m - 1, d, 12, 0, 0, 0);
+      return createLocalDate(y, m, d);
     }
 
     if (/^\d{8}$/.test(s)) {
       const y = Number(s.slice(0, 4));
       const m = Number(s.slice(4, 6));
       const d = Number(s.slice(6, 8));
-      return new Date(y, m - 1, d, 12, 0, 0, 0);
+      return createLocalDate(y, m, d);
     }
 
     if (/^\d+(\.\d+)?$/.test(s)) {
@@ -200,8 +225,16 @@
   function refreshTopLabels() {
     const wk = getWeekLabel();
     const cl = getClassLabel();
+    const mondayIso = getMondayIsoFromCell();
+    const monday = parseISODate(mondayIso);
+
     el.weekLabel.textContent = wk || "—";
     el.classLabel.textContent = cl || "—";
+    el.selectedMondayLabel.textContent = monday ? formatYMDSlash(monday) : "—";
+
+    const mText = el.monthNum.value ? `${el.monthNum.value}月` : "—月";
+    const wText = el.weekNum.value ? `第${el.weekNum.value}週` : "第—週";
+    el.inputPanelMonthWeek.textContent = `${mText}　${wText}`;
   }
 
   function weekKey(mondayIso) {
@@ -361,9 +394,20 @@
     localStorage.setItem(key, JSON.stringify(data));
     el.weekKeyView.textContent = key;
     el.lastSavedView.textContent = data.updatedAt;
+    renderCalendar();
   }
 
   let saveTimer = null;
+
+  function flushAutosave() {
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+    try {
+      autosave();
+    } catch (_) {}
+  }
 
   function scheduleAutosave() {
     refreshTopLabels();
@@ -400,6 +444,13 @@
     el.lastSavedView.textContent = "—";
   }
 
+  function setCalendarMonthByIso(iso) {
+    const dateObj = parseISODate(iso);
+    if (!dateObj) return;
+    calendarState.year = dateObj.getFullYear();
+    calendarState.month = dateObj.getMonth() + 1;
+  }
+
   function loadWeek(mondayIso) {
     buildJournalRows(mondayIso);
     refreshTopLabels();
@@ -407,8 +458,13 @@
     el.weekKeyView.textContent = mondayIso ? weekKey(mondayIso) : "未設定";
     el.lastSavedView.textContent = "—";
 
+    if (mondayIso) {
+      setCalendarMonthByIso(mondayIso);
+    }
+
     if (!mondayIso) {
       clearCurrentInputs(true);
+      renderCalendar();
       return;
     }
 
@@ -417,7 +473,11 @@
 
     if (!raw) {
       clearCurrentInputs(true);
+      const mondayInput = document.getElementById("mondayInCell");
+      if (mondayInput) mondayInput.value = mondayIso;
       el.weekKeyView.textContent = key;
+      refreshTopLabels();
+      renderCalendar();
       return;
     }
 
@@ -426,6 +486,7 @@
       data = JSON.parse(raw);
     } catch (e) {
       alert("保存データの読み込みに失敗しました。");
+      renderCalendar();
       return;
     }
 
@@ -455,9 +516,13 @@
     el.case2Date.value = normalizeDateToISO(data.individual?.[1]?.dateIso ?? "");
     el.case2Text.value = data.individual?.[1]?.text ?? "";
 
+    const mondayInput = document.getElementById("mondayInCell");
+    if (mondayInput) mondayInput.value = mondayIso;
+
     refreshTopLabels();
     el.weekKeyView.textContent = key;
     el.lastSavedView.textContent = data.updatedAt || "—";
+    renderCalendar();
   }
 
   function onMondayChanged(newMondayIso) {
@@ -479,7 +544,13 @@
 
     localStorage.removeItem(key);
     clearCurrentInputs(true);
+
+    const mondayInput = document.getElementById("mondayInCell");
+    if (mondayInput) mondayInput.value = mondayIso;
+
     el.weekKeyView.textContent = key;
+    refreshTopLabels();
+    renderCalendar();
   }
 
   function deleteAllData() {
@@ -569,6 +640,8 @@
   }
 
   function backupAllData() {
+    flushAutosave();
+
     const rows = [];
 
     const keys = [];
@@ -738,6 +811,8 @@
     const currentMonday = getMondayIsoFromCell();
     if (currentMonday) {
       loadWeek(currentMonday);
+    } else {
+      renderCalendar();
     }
 
     alert(`復元完了：${count}件`);
@@ -796,6 +871,8 @@
   }
 
   function exportCurrentWeekCSV() {
+    flushAutosave();
+
     const mondayIso = getMondayIsoFromCell();
 
     if (!mondayIso) {
@@ -854,16 +931,161 @@
     downloadCsv(csv, fname);
   }
 
+  function getAllStoredWeeks() {
+    const list = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(STORAGE_PREFIX)) continue;
+
+      try {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const data = JSON.parse(raw);
+        if (data && data.mondayIso) {
+          list.push(data);
+        }
+      } catch (_) {}
+    }
+
+    return list;
+  }
+
+  function getActivityDateSet() {
+    const set = new Set();
+    const currentMondayIso = getMondayIsoFromCell();
+
+    if (currentMondayIso) {
+      const currentData = collectData(currentMondayIso);
+      currentData.journal.forEach((row) => {
+        if (row && row.dateIso && String(row.activity || "").trim()) {
+          set.add(row.dateIso);
+        }
+      });
+    }
+
+    getAllStoredWeeks().forEach((week) => {
+      const journal = Array.isArray(week.journal) ? week.journal : [];
+      journal.forEach((row) => {
+        if (row && row.dateIso && String(row.activity || "").trim()) {
+          set.add(row.dateIso);
+        }
+      });
+    });
+
+    return set;
+  }
+
+  function renderCalendar() {
+    const year = calendarState.year;
+    const month = calendarState.month;
+    const firstDay = createLocalDate(year, month, 1);
+    const firstDow = firstDay.getDay();
+    const startDate = addDays(firstDay, -firstDow);
+    const selectedMondayIso = getMondayIsoFromCell();
+    const activityDateSet = getActivityDateSet();
+
+    el.calendarTitle.textContent = `${year}年${month}月`;
+    el.calendarGrid.innerHTML = "";
+
+    for (let i = 0; i < 42; i++) {
+      const cellDate = addDays(startDate, i);
+      const cellIso = toISO(cellDate);
+      const inCurrentMonth = cellDate.getMonth() + 1 === month;
+      const isMonday = cellDate.getDay() === 1;
+      const isSelected = selectedMondayIso === cellIso;
+      const hasActivity = activityDateSet.has(cellIso);
+
+      const cell = document.createElement("div");
+      cell.className = "calendarCell";
+      if (!inCurrentMonth) cell.classList.add("otherMonth");
+      if (isSelected) cell.classList.add("isSelected");
+
+      let inner;
+      if (isMonday) {
+        inner = document.createElement("button");
+        inner.type = "button";
+        inner.className = "calendarCellInner isMonday";
+        inner.addEventListener("click", () => {
+          flushAutosave();
+          onMondayChanged(cellIso);
+        });
+      } else {
+        inner = document.createElement("div");
+        inner.className = "calendarCellInner";
+      }
+
+      const dayNum = document.createElement("div");
+      dayNum.className = "calendarDayNum";
+      dayNum.textContent = String(cellDate.getDate());
+      inner.appendChild(dayNum);
+
+      if (isMonday) {
+        const mondayMark = document.createElement("div");
+        mondayMark.className = "calendarMondayMark";
+        mondayMark.textContent = "月曜";
+        inner.appendChild(mondayMark);
+      }
+
+      cell.appendChild(inner);
+
+      const dotRow = document.createElement("div");
+      dotRow.className = "calendarDotRow";
+      if (hasActivity) {
+        const dot = document.createElement("span");
+        dot.className = "calendarDot";
+        dot.textContent = "●";
+        dotRow.appendChild(dot);
+      }
+      cell.appendChild(dotRow);
+
+      el.calendarGrid.appendChild(cell);
+    }
+  }
+
   function activateTab(tabName) {
+    flushAutosave();
+
     const isMain = tabName === "main";
+    const isCalendar = tabName === "calendar";
+    const isManage = tabName === "manage";
+
     el.tabMain.classList.toggle("active", isMain);
-    el.tabManage.classList.toggle("active", !isMain);
+    el.tabCalendar.classList.toggle("active", isCalendar);
+    el.tabManage.classList.toggle("active", isManage);
+
     el.tabMainBtn.classList.toggle("active", isMain);
-    el.tabManageBtn.classList.toggle("active", !isMain);
+    el.tabCalendarBtn.classList.toggle("active", isCalendar);
+    el.tabManageBtn.classList.toggle("active", isManage);
+
+    if (isCalendar) {
+      renderCalendar();
+    }
+  }
+
+  function moveCalendarMonth(diff) {
+    let y = calendarState.year;
+    let m = calendarState.month + diff;
+
+    if (m <= 0) {
+      y -= 1;
+      m = 12;
+    } else if (m >= 13) {
+      y += 1;
+      m = 1;
+    }
+
+    calendarState.year = y;
+    calendarState.month = m;
+    renderCalendar();
   }
 
   el.tabMainBtn.addEventListener("click", () => activateTab("main"));
+  el.tabCalendarBtn.addEventListener("click", () => activateTab("calendar"));
   el.tabManageBtn.addEventListener("click", () => activateTab("manage"));
+
+  el.btnPrevMonth.addEventListener("click", () => moveCalendarMonth(-1));
+  el.btnNextMonth.addEventListener("click", () => moveCalendarMonth(1));
 
   el.btnExport.addEventListener("click", exportCurrentWeekCSV);
   el.btnClear.addEventListener("click", clearThisWeek);
@@ -897,6 +1119,7 @@
   el.weekKeyView.textContent = "未設定";
   el.lastSavedView.textContent = "—";
   activateTab("main");
+  renderCalendar();
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
