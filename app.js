@@ -1,4 +1,3 @@
-
 (() => {
   "use strict";
 
@@ -98,6 +97,8 @@
 
   let currentStartDateIso = "";
   let saveTimer = null;
+  let suppressAutosave = false;
+  let classPickerResolve = null;
 
   const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -358,6 +359,31 @@
     };
   }
 
+  function setEditingEnabled(enabled) {
+    const slotDates = getJournalDateSlots(currentStartDateIso);
+
+    [
+      el.weeklyAim,
+      el.events,
+      el.weeklyEvaluation,
+      el.case1Date,
+      el.case1Text,
+      el.case2Date,
+      el.case2Text,
+      el.btnClear
+    ].forEach((node) => {
+      node.disabled = !enabled;
+    });
+
+    for (let i = 0; i < 6; i++) {
+      const slotExists = Boolean(slotDates[i]);
+      const rowEls = getJournalRowElements(i);
+      if (rowEls.activity) rowEls.activity.disabled = !enabled || !slotExists;
+      if (rowEls.evaluation) rowEls.evaluation.disabled = !enabled || !slotExists;
+      if (rowEls.attendance) rowEls.attendance.disabled = !enabled || !slotExists;
+    }
+  }
+
   function collectData(startDateIso) {
     const slotDates = getJournalDateSlots(startDateIso);
 
@@ -418,8 +444,19 @@
     refreshTopLabels();
   }
 
+  function withSuppressedAutosave(fn) {
+    suppressAutosave = true;
+    try {
+      return fn();
+    } finally {
+      suppressAutosave = false;
+    }
+  }
+
   function autosave() {
+    if (suppressAutosave) return;
     if (!currentStartDateIso) return;
+
     const classKey = el.classSelect.value || "";
     if (!classKey) {
       refreshTopLabels();
@@ -440,12 +477,14 @@
       clearTimeout(saveTimer);
       saveTimer = null;
     }
+    if (suppressAutosave) return;
     try {
       autosave();
     } catch (_) {}
   }
 
   function scheduleAutosave() {
+    if (suppressAutosave) return;
     refreshTopLabels();
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
@@ -455,8 +494,103 @@
     }, 450);
   }
 
+  function getStoredDataList() {
+    const list = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k || !k.startsWith(STORAGE_PREFIX)) continue;
+      try {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const data = JSON.parse(raw);
+        if (data && data.startDate && data.classKey) {
+          list.push(data);
+        }
+      } catch (_) {}
+    }
+    return list;
+  }
+
+  function closeClassPicker(selectedClassKey) {
+    const overlay = document.getElementById("classPickerOverlay");
+    if (overlay) overlay.remove();
+    const resolver = classPickerResolve;
+    classPickerResolve = null;
+    if (resolver) resolver(selectedClassKey || "");
+  }
+
+  function showClassPicker(startDateIso) {
+    closeClassPicker("");
+
+    return new Promise((resolve) => {
+      classPickerResolve = resolve;
+
+      const overlay = document.createElement("div");
+      overlay.id = "classPickerOverlay";
+      overlay.style.position = "fixed";
+      overlay.style.inset = "0";
+      overlay.style.background = "rgba(0,0,0,0.35)";
+      overlay.style.display = "flex";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+      overlay.style.zIndex = "9999";
+
+      const panel = document.createElement("div");
+      panel.style.width = "min(92vw, 420px)";
+      panel.style.background = "#fff";
+      panel.style.borderRadius = "14px";
+      panel.style.padding = "20px";
+      panel.style.boxShadow = "0 10px 30px rgba(0,0,0,0.22)";
+
+      const title = document.createElement("div");
+      title.textContent = `${startDateIso} のクラスを選択`;
+      title.style.fontWeight = "700";
+      title.style.marginBottom = "14px";
+      panel.appendChild(title);
+
+      const list = document.createElement("div");
+      list.style.display = "grid";
+      list.style.gap = "10px";
+
+      classOrder.forEach((classKey) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = getClassLabel(classKey);
+        btn.style.padding = "12px 14px";
+        btn.style.border = "1px solid #cfd8dc";
+        btn.style.borderRadius = "10px";
+        btn.style.background = "#f8fafc";
+        btn.style.cursor = "pointer";
+        btn.addEventListener("click", () => closeClassPicker(classKey));
+        list.appendChild(btn);
+      });
+
+      const cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.textContent = "キャンセル";
+      cancelBtn.style.marginTop = "14px";
+      cancelBtn.style.padding = "12px 14px";
+      cancelBtn.style.width = "100%";
+      cancelBtn.style.border = "1px solid #cfd8dc";
+      cancelBtn.style.borderRadius = "10px";
+      cancelBtn.style.background = "#fff";
+      cancelBtn.style.cursor = "pointer";
+      cancelBtn.addEventListener("click", () => closeClassPicker(""));
+
+      panel.appendChild(list);
+      panel.appendChild(cancelBtn);
+      overlay.appendChild(panel);
+      overlay.addEventListener("click", (event) => {
+        if (event.target === overlay) {
+          closeClassPicker("");
+        }
+      });
+
+      document.body.appendChild(overlay);
+    });
+  }
+
   function loadWeek(startDateIso) {
-    flushAutosave();
     currentStartDateIso = startDateIso || "";
     buildJournalRows(currentStartDateIso);
     refreshTopLabels();
@@ -467,53 +601,75 @@
     }
 
     if (!currentStartDateIso) {
-      clearCurrentInputs(false);
+      withSuppressedAutosave(() => clearCurrentInputs(false));
+      setEditingEnabled(false);
       renderCalendar();
       return;
     }
 
     const classKey = el.classSelect.value || "";
     if (!classKey) {
-      clearCurrentInputs(true);
+      withSuppressedAutosave(() => clearCurrentInputs(true));
+      setEditingEnabled(false);
       renderCalendar();
       return;
     }
 
     const raw = localStorage.getItem(makeStorageKey(currentStartDateIso, classKey));
     if (!raw) {
-      clearCurrentInputs(true);
+      withSuppressedAutosave(() => clearCurrentInputs(true));
+      setEditingEnabled(true);
+      refreshTopLabels();
       renderCalendar();
       return;
     }
 
     try {
-      const data = JSON.parse(raw);
-      el.weeklyAim.value = data.weeklyAim ?? "";
-      el.events.value = data.events ?? "";
+      withSuppressedAutosave(() => {
+        const data = JSON.parse(raw);
+        el.weeklyAim.value = data.weeklyAim ?? "";
+        el.events.value = data.events ?? "";
 
-      const journal = Array.isArray(data.journal) ? data.journal : [];
-      const slotDates = getJournalDateSlots(currentStartDateIso);
-      for (let i = 0; i < 6; i++) {
-        const row = journal[i] || {};
-        const els = getJournalRowElements(i);
-        const isActiveSlot = Boolean(slotDates[i]);
-        if (els.activity) els.activity.value = isActiveSlot ? (row.activity || "") : "";
-        if (els.evaluation) els.evaluation.value = isActiveSlot ? (row.evaluation || "") : "";
-        if (els.attendance) els.attendance.value = isActiveSlot ? (row.attendance || "") : "";
-      }
+        const journal = Array.isArray(data.journal) ? data.journal : [];
+        const slotDates = getJournalDateSlots(currentStartDateIso);
+        for (let i = 0; i < 6; i++) {
+          const row = journal[i] || {};
+          const els = getJournalRowElements(i);
+          const isActiveSlot = Boolean(slotDates[i]);
+          if (els.activity) els.activity.value = isActiveSlot ? (row.activity || "") : "";
+          if (els.evaluation) els.evaluation.value = isActiveSlot ? (row.evaluation || "") : "";
+          if (els.attendance) els.attendance.value = isActiveSlot ? (row.attendance || "") : "";
+        }
 
-      el.weeklyEvaluation.value = data.weeklyEvaluation ?? "";
-      el.case1Date.value = normalizeDateToISO(data.individual?.[0]?.dateIso ?? "");
-      el.case1Text.value = data.individual?.[0]?.text ?? "";
-      el.case2Date.value = normalizeDateToISO(data.individual?.[1]?.dateIso ?? "");
-      el.case2Text.value = data.individual?.[1]?.text ?? "";
-      el.lastSavedView.textContent = data.updatedAt || "—";
+        el.weeklyEvaluation.value = data.weeklyEvaluation ?? "";
+        el.case1Date.value = normalizeDateToISO(data.individual?.[0]?.dateIso ?? "");
+        el.case1Text.value = data.individual?.[0]?.text ?? "";
+        el.case2Date.value = normalizeDateToISO(data.individual?.[1]?.dateIso ?? "");
+        el.case2Text.value = data.individual?.[1]?.text ?? "";
+        el.lastSavedView.textContent = data.updatedAt || "—";
+      });
+      setEditingEnabled(true);
     } catch (_) {
+      setEditingEnabled(false);
       alert("保存データの読み込みに失敗しました。");
     }
 
     refreshTopLabels();
     renderCalendar();
+  }
+
+  async function openWeekFromCalendar(startDateIso) {
+    flushAutosave();
+
+    const selectedClassKey = await showClassPicker(startDateIso);
+    if (!selectedClassKey) return;
+
+    withSuppressedAutosave(() => {
+      el.classSelect.value = selectedClassKey;
+    });
+
+    loadWeek(startDateIso);
+    activateTab("main");
   }
 
   function clearThisWeek() {
@@ -531,7 +687,8 @@
     if (!confirm("この週の保存データを消去します。よろしいですか？")) return;
 
     localStorage.removeItem(key);
-    clearCurrentInputs(true);
+    withSuppressedAutosave(() => clearCurrentInputs(true));
+    setEditingEnabled(true);
     refreshTopLabels();
     renderCalendar();
   }
@@ -540,12 +697,15 @@
     flushAutosave();
     currentStartDateIso = "";
     buildJournalRows("");
-    el.classSelect.value = "";
-    clearCurrentInputs(false);
+    withSuppressedAutosave(() => {
+      el.classSelect.value = "";
+      clearCurrentInputs(false);
+    });
     el.restoreFileInput.value = "";
     el.weekKeyView.textContent = "未設定";
     el.lastSavedView.textContent = "—";
-    activateTab("main");
+    setEditingEnabled(false);
+    activateTab("calendar");
     renderCalendar();
   }
 
@@ -607,23 +767,6 @@
       lines.push(BACKUP_HEADERS.map((h) => csvEscape(rowObj[h] ?? "")).join(","));
     });
     return lines.join("\r\n");
-  }
-
-  function getStoredDataList() {
-    const list = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k || !k.startsWith(STORAGE_PREFIX)) continue;
-      try {
-        const raw = localStorage.getItem(k);
-        if (!raw) continue;
-        const data = JSON.parse(raw);
-        if (data && data.startDate && data.classKey) {
-          list.push(data);
-        }
-      } catch (_) {}
-    }
-    return list;
   }
 
   function sortRowsByStartDate(rows) {
@@ -913,8 +1056,7 @@
         inner.type = "button";
         inner.className = "calendarCellInner isMonday";
         inner.addEventListener("click", () => {
-          loadWeek(cellIso);
-          activateTab("main");
+          openWeekFromCalendar(cellIso);
         });
       } else {
         inner = document.createElement("div");
@@ -997,15 +1139,6 @@
     await handleRestoreFile(file);
   });
 
-  el.classSelect.addEventListener("change", () => {
-    refreshTopLabels();
-    if (currentStartDateIso) {
-      loadWeek(currentStartDateIso);
-    } else {
-      scheduleAutosave();
-    }
-  });
-
   [
     el.weeklyAim,
     el.events,
@@ -1019,11 +1152,17 @@
     inp.addEventListener("change", scheduleAutosave);
   });
 
+  el.classSelect.disabled = true;
+  if (el.classSelect.options.length > 0) {
+    el.classSelect.options[0].textContent = "クラス（カレンダーで選択）";
+  }
+
   buildJournalRows("");
   refreshTopLabels();
   loadWeek("");
-  activateTab("main");
   renderCalendar();
+  activateTab("calendar");
+  setEditingEnabled(false);
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
