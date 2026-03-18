@@ -693,15 +693,26 @@
     renderCalendar();
   }
 
-  function resetAppToInitialState() {
-    flushAutosave();
-    currentStartDateIso = "";
-    buildJournalRows("");
+  function resetAppToInitialState(options = {}) {
+    const skipFlush = Boolean(options.skipFlush);
+
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+
+    if (!skipFlush) {
+      flushAutosave();
+    }
+
     withSuppressedAutosave(() => {
+      currentStartDateIso = "";
+      buildJournalRows("");
       el.classSelect.value = "";
       clearCurrentInputs(false);
+      el.restoreFileInput.value = "";
     });
-    el.restoreFileInput.value = "";
+
     el.weekKeyView.textContent = "未設定";
     el.lastSavedView.textContent = "—";
     setEditingEnabled(false);
@@ -716,6 +727,11 @@
       return;
     }
 
+    if (saveTimer) {
+      clearTimeout(saveTimer);
+      saveTimer = null;
+    }
+
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -724,8 +740,11 @@
       }
     }
 
-    keys.forEach((k) => localStorage.removeItem(k));
-    resetAppToInitialState();
+    withSuppressedAutosave(() => {
+      keys.forEach((k) => localStorage.removeItem(k));
+      resetAppToInitialState({ skipFlush: true });
+    });
+
     alert("初期化しました。必要ならバックアップCSVから復元してください。");
   }
 
