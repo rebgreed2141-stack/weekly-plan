@@ -80,8 +80,26 @@ button.danger{
 
 .tabBar{
   display:flex;
+  align-items:center;
+  justify-content:space-between;
   gap:8px;
   margin-bottom:10px;
+}
+
+.tabBarLeft{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  min-width:0;
+}
+
+.tabVersion{
+  margin-left:auto;
+  font-size:12px;
+  font-weight:900;
+  color:var(--muted);
+  white-space:nowrap;
+  flex:0 0 auto;
 }
 
 .tabBtn{
@@ -424,7 +442,17 @@ th{
   }
 
   .tabBar{
+    align-items:flex-start;
     flex-wrap:wrap;
+  }
+
+  .tabBarLeft{
+    width:100%;
+  }
+
+  .tabVersion{
+    width:100%;
+    text-align:right;
   }
 
   .calendarHead{
