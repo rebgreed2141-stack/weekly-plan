@@ -1,10 +1,13 @@
 {
-  "name": "週案日誌",
-  "short_name": "週案",
-  "start_url": "./index.html",
+  "name": "週案日誌アプリ",
+  "short_name": "週案日誌",
+  "description": "週案日誌を記録するアプリ",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "theme_color": "#4CAF50",
+  "orientation": "any",
   "icons": [
     {
       "src": "icon-192.png",
