@@ -24,8 +24,8 @@
         <button type="button" class="tabBtn active" id="tabMainBtn" data-tab="main">入力</button>
         <button type="button" class="tabBtn" id="tabCalendarBtn" data-tab="calendar">カレンダー</button>
         <button type="button" class="tabBtn" id="tabManageBtn" data-tab="manage">管理</button>
+        <button type="button" class="tabBtn" id="tabVersionBtn" data-tab="version">バージョン</button>
       </div>
-      <div class="tabVersion">Ver1.0.0</div>
     </div>
 
     <section class="tabPanel active" id="tabMain">
@@ -151,6 +151,28 @@
         <div class="sectionTitle">この週の操作</div>
         <div class="manageButtons">
           <button type="button" class="danger" id="btnClear">この週を消去</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="tabPanel" id="tabVersion">
+      <div class="card">
+        <div class="sectionTitle">バージョン</div>
+
+        <div class="versionRows">
+          <div class="versionRow">
+            <div class="versionLabel">現在のバージョン</div>
+            <div class="versionValue mono" id="currentVersionView">—</div>
+          </div>
+
+          <div class="versionRow">
+            <div class="versionLabel">最新のバージョン</div>
+            <div class="versionValue mono" id="latestVersionView">確認中…</div>
+          </div>
+        </div>
+
+        <div class="manageButtons">
+          <button type="button" id="btnApplyUpdate" disabled>更新する</button>
         </div>
       </div>
     </section>

@@ -1,4 +1,4 @@
-const CACHE_NAME = "weekly-plan-v8";
+const CACHE_NAME = "weekly-plan-v9";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -7,6 +7,7 @@ const CORE_ASSETS = [
   "./jszip.min.js",
   "./manifest.json",
   "./sw.js",
+  "./version.json",
   "./icon-192.png",
   "./icon-512.png"
 ];
@@ -15,7 +16,6 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -24,6 +24,12 @@ self.addEventListener("activate", (event) => {
     await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
     await self.clients.claim();
   })());
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
 async function networkFirst(request) {
@@ -63,7 +69,8 @@ self.addEventListener("fetch", (event) => {
     "/styles.css",
     "/app.js",
     "/manifest.json",
-    "/sw.js"
+    "/sw.js",
+    "/version.json"
   ].includes(url.pathname);
 
   if (event.request.mode === "navigate" || isCoreAsset) {

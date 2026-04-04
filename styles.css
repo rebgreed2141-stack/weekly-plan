@@ -463,3 +463,33 @@ th{
     order:-1;
   }
 }
+
+.versionRows{
+  display:grid;
+  gap:10px;
+}
+
+.versionRow{
+  display:grid;
+  grid-template-columns:160px 1fr;
+  gap:10px;
+  align-items:center;
+}
+
+.versionLabel{
+  font-size:13px;
+  font-weight:800;
+}
+
+.versionValue{
+  border:1px solid var(--bd);
+  border-radius:10px;
+  padding:10px;
+  background:var(--soft);
+  font-weight:900;
+}
+
+button:disabled{
+  opacity:0.5;
+  cursor:default;
+}

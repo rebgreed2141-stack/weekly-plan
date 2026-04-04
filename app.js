@@ -78,9 +78,14 @@
     tabMainBtn: document.getElementById("tabMainBtn"),
     tabCalendarBtn: document.getElementById("tabCalendarBtn"),
     tabManageBtn: document.getElementById("tabManageBtn"),
+    tabVersionBtn: document.getElementById("tabVersionBtn"),
     tabMain: document.getElementById("tabMain"),
     tabCalendar: document.getElementById("tabCalendar"),
     tabManage: document.getElementById("tabManage"),
+    tabVersion: document.getElementById("tabVersion"),
+    currentVersionView: document.getElementById("currentVersionView"),
+    latestVersionView: document.getElementById("latestVersionView"),
+    btnApplyUpdate: document.getElementById("btnApplyUpdate"),
     btnPrevMonth: document.getElementById("btnPrevMonth"),
     btnNextMonth: document.getElementById("btnNextMonth"),
     calendarTitle: document.getElementById("calendarTitle"),
@@ -99,6 +104,10 @@
   let saveTimer = null;
   let suppressAutosave = false;
   let classPickerResolve = null;
+  let currentVersion = "";
+  let latestVersion = "";
+  let swRegistration = null;
+  let hasControllerChangeReloaded = false;
 
   const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -1116,16 +1125,128 @@
     const isMain = tabName === "main";
     const isCalendar = tabName === "calendar";
     const isManage = tabName === "manage";
+    const isVersion = tabName === "version";
 
     el.tabMain.classList.toggle("active", isMain);
     el.tabCalendar.classList.toggle("active", isCalendar);
     el.tabManage.classList.toggle("active", isManage);
+    el.tabVersion.classList.toggle("active", isVersion);
 
     el.tabMainBtn.classList.toggle("active", isMain);
     el.tabCalendarBtn.classList.toggle("active", isCalendar);
     el.tabManageBtn.classList.toggle("active", isManage);
+    el.tabVersionBtn.classList.toggle("active", isVersion);
 
     if (isCalendar) renderCalendar();
+  }
+
+
+  async function fetchVersionJson(options = {}) {
+    const url = options.noStore ? `./version.json?ts=${Date.now()}` : "./version.json";
+    const response = await fetch(url, {
+      cache: options.noStore ? "no-store" : "default"
+    });
+    if (!response.ok) {
+      throw new Error("version.json を読み込めません。");
+    }
+    const json = await response.json();
+    return String((json && json.version) || "").trim();
+  }
+
+  function updateVersionButtonState() {
+    const hasWaitingWorker = !!(swRegistration && swRegistration.waiting);
+    const canUpdate = hasWaitingWorker && !!latestVersion && !!currentVersion && latestVersion !== currentVersion;
+    el.btnApplyUpdate.disabled = !canUpdate;
+  }
+
+  function reflectVersionViews() {
+    el.currentVersionView.textContent = currentVersion || "—";
+    if (!latestVersion || latestVersion === currentVersion) {
+      el.latestVersionView.textContent = "最新です";
+    } else {
+      el.latestVersionView.textContent = latestVersion;
+    }
+    updateVersionButtonState();
+  }
+
+  async function refreshVersionViews() {
+    try {
+      currentVersion = await fetchVersionJson();
+    } catch (_) {
+      currentVersion = "";
+    }
+
+    try {
+      latestVersion = await fetchVersionJson({ noStore: true });
+    } catch (_) {
+      latestVersion = currentVersion;
+    }
+
+    reflectVersionViews();
+  }
+
+  function bindWaitingWorker(registration) {
+    swRegistration = registration || null;
+    updateVersionButtonState();
+  }
+
+  async function setupVersionManagement() {
+    await refreshVersionViews();
+
+    if (!("serviceWorker" in navigator)) {
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register("./sw.js");
+      bindWaitingWorker(registration);
+
+      if (registration.waiting) {
+        try {
+          latestVersion = await fetchVersionJson({ noStore: true });
+        } catch (_) {}
+        reflectVersionViews();
+      }
+
+      registration.addEventListener("updatefound", () => {
+        const installingWorker = registration.installing;
+        if (!installingWorker) return;
+
+        installingWorker.addEventListener("statechange", async () => {
+          if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
+            bindWaitingWorker(registration);
+            try {
+              latestVersion = await fetchVersionJson({ noStore: true });
+            } catch (_) {}
+            reflectVersionViews();
+          }
+        });
+      });
+
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (hasControllerChangeReloaded) return;
+        hasControllerChangeReloaded = true;
+        window.location.reload();
+      });
+
+      try {
+        await registration.update();
+      } catch (_) {}
+
+      bindWaitingWorker(registration);
+
+      try {
+        latestVersion = await fetchVersionJson({ noStore: true });
+      } catch (_) {}
+      reflectVersionViews();
+    } catch (_) {
+      updateVersionButtonState();
+    }
+  }
+
+  function applyWaitingUpdate() {
+    if (!swRegistration || !swRegistration.waiting) return;
+    swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
   }
 
   function moveCalendarMonth(diff) {
@@ -1146,6 +1267,8 @@
   el.tabMainBtn.addEventListener("click", () => activateTab("main"));
   el.tabCalendarBtn.addEventListener("click", () => activateTab("calendar"));
   el.tabManageBtn.addEventListener("click", () => activateTab("manage"));
+  el.tabVersionBtn.addEventListener("click", () => activateTab("version"));
+  el.btnApplyUpdate.addEventListener("click", applyWaitingUpdate);
   el.btnPrevMonth.addEventListener("click", () => moveCalendarMonth(-1));
   el.btnNextMonth.addEventListener("click", () => moveCalendarMonth(1));
   el.btnClear.addEventListener("click", clearThisWeek);
@@ -1183,9 +1306,7 @@
   activateTab("calendar");
   setEditingEnabled(false);
 
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js");
-    });
-  }
+  window.addEventListener("load", () => {
+    setupVersionManagement();
+  });
 })();
