@@ -107,7 +107,6 @@
   let currentVersion = "";
   let latestVersion = "";
   let swRegistration = null;
-  let hasControllerChangeReloaded = false;
 
   const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -1138,6 +1137,9 @@
     el.tabVersionBtn.classList.toggle("active", isVersion);
 
     if (isCalendar) renderCalendar();
+    if (isVersion) {
+      refreshLatestVersionInfo();
+    }
   }
 
 
@@ -1154,8 +1156,7 @@
   }
 
   function updateVersionButtonState() {
-    const hasWaitingWorker = !!(swRegistration && swRegistration.waiting);
-    const canUpdate = hasWaitingWorker && !!latestVersion && !!currentVersion && latestVersion !== currentVersion;
+    const canUpdate = !!latestVersion && !!currentVersion && latestVersion !== currentVersion;
     el.btnApplyUpdate.disabled = !canUpdate;
   }
 
@@ -1176,12 +1177,17 @@
       currentVersion = "";
     }
 
+    latestVersion = currentVersion;
+    reflectVersionViews();
+  }
+
+
+  async function refreshLatestVersionInfo() {
     try {
       latestVersion = await fetchVersionJson({ noStore: true });
     } catch (_) {
       latestVersion = currentVersion;
     }
-
     reflectVersionViews();
   }
 
@@ -1198,15 +1204,12 @@
     }
 
     try {
-      const registration = await navigator.serviceWorker.register("./sw.js");
-      bindWaitingWorker(registration);
-
-      if (registration.waiting) {
-        try {
-          latestVersion = await fetchVersionJson({ noStore: true });
-        } catch (_) {}
-        reflectVersionViews();
+      let registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        registration = await navigator.serviceWorker.register("./sw.js");
       }
+
+      bindWaitingWorker(registration);
 
       registration.addEventListener("updatefound", () => {
         const installingWorker = registration.installing;
@@ -1222,31 +1225,85 @@
           }
         });
       });
-
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (hasControllerChangeReloaded) return;
-        hasControllerChangeReloaded = true;
-        window.location.reload();
-      });
-
-      try {
-        await registration.update();
-      } catch (_) {}
-
-      bindWaitingWorker(registration);
-
-      try {
-        latestVersion = await fetchVersionJson({ noStore: true });
-      } catch (_) {}
-      reflectVersionViews();
     } catch (_) {
       updateVersionButtonState();
     }
   }
 
-  function applyWaitingUpdate() {
-    if (!swRegistration || !swRegistration.waiting) return;
-    swRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
+  async function waitForWaitingWorker(registration) {
+    if (registration.waiting) return registration.waiting;
+
+    return await new Promise((resolve) => {
+      let settled = false;
+
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        resolve(registration.waiting || null);
+      };
+
+      const installingWorker = registration.installing;
+      if (installingWorker) {
+        installingWorker.addEventListener("statechange", () => {
+          if (installingWorker.state === "installed") {
+            finish();
+          }
+        });
+      }
+
+      registration.addEventListener("updatefound", () => {
+        const worker = registration.installing;
+        if (!worker) {
+          finish();
+          return;
+        }
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "installed") {
+            finish();
+          }
+        });
+      }, { once: true });
+
+      setTimeout(finish, 8000);
+    });
+  }
+
+  async function applyWaitingUpdate() {
+    if (!swRegistration || el.btnApplyUpdate.disabled) return;
+
+    el.btnApplyUpdate.disabled = true;
+
+    try {
+      try {
+        latestVersion = await fetchVersionJson({ noStore: true });
+      } catch (_) {}
+
+      await swRegistration.update();
+      bindWaitingWorker(swRegistration);
+
+      const waitingWorker = await waitForWaitingWorker(swRegistration);
+      if (!waitingWorker) {
+        reflectVersionViews();
+        return;
+      }
+
+      await new Promise((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+
+        navigator.serviceWorker.addEventListener("controllerchange", finish, { once: true });
+        waitingWorker.postMessage({ type: "SKIP_WAITING" });
+        setTimeout(finish, 8000);
+      });
+
+      window.location.reload();
+    } catch (_) {
+      reflectVersionViews();
+    }
   }
 
   function moveCalendarMonth(diff) {
