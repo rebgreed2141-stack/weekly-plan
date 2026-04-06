@@ -1,57 +1,44 @@
-const CACHE_NAME = "weekly-plan-v10";
-const CORE_ASSETS = [
+const CACHE_NAME = "app-cache-v1";
+
+const CORE = [
   "./",
   "./index.html",
-  "./styles.css",
   "./app.js",
-  "./jszip.min.js",
-  "./manifest.json",
-  "./sw.js",
-  "./icon-192.png",
-  "./icon-512.png"
+  "./styles.css",
+  "./manifest.json"
 ];
 
-self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
+// install: キャッシュのみ（skipWaitingしない）
+self.addEventListener("install", e => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then(c => c.addAll(CORE))
   );
 });
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
-    await self.clients.claim();
-  })());
+// activate: claimのみ
+self.addEventListener("activate", e => {
+  e.waitUntil(self.clients.claim());
 });
 
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
+// fetch: 完全cache-first（version.jsonだけ例外）
+self.addEventListener("fetch", e => {
+  const url = new URL(e.request.url);
 
-async function cacheFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request, { ignoreSearch: true });
-  if (cached) return cached;
-
-  const response = await fetch(request);
-  if (response && response.ok) {
-    cache.put(request, response.clone()).catch(() => {});
-  }
-  return response;
-}
-
-self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
-
-  const url = new URL(event.request.url);
-
-  if (url.pathname.endsWith("/version.json") || url.pathname === "/version.json") {
-    event.respondWith(fetch(event.request, { cache: "no-store" }));
+  if (url.pathname.endsWith("version.json")) {
+    e.respondWith(fetch(e.request, { cache: "no-store" }));
     return;
   }
 
-  event.respondWith(cacheFirst(event.request));
+  e.respondWith(
+    caches.match(e.request).then(res => {
+      return res || fetch(e.request);
+    })
+  );
+});
+
+// 手動更新のみ許可
+self.addEventListener("message", e => {
+  if (e.data === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
