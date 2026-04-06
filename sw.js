@@ -1,4 +1,4 @@
-const CACHE_NAME = "weekly-plan-v10";
+const CACHE_NAME = "weekly-plan-cache";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -26,25 +26,46 @@ self.addEventListener("activate", (event) => {
   })());
 });
 
+async function refreshCoreAssets() {
+  const cache = await caches.open(CACHE_NAME);
+  for (const asset of CORE_ASSETS) {
+    try {
+      const request = new Request(asset, { cache: "reload" });
+      const response = await fetch(request);
+      if (response && response.ok) {
+        await cache.put(asset, response.clone());
+      }
+    } catch (_) {}
+  }
+}
+
 self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
+  const data = event.data || {};
+
+  if (data.type === "SKIP_WAITING") {
     self.skipWaiting();
+    return;
+  }
+
+  if (data.type === "REFRESH_CACHE") {
+    const replyPort = event.ports && event.ports[0];
+    event.waitUntil((async () => {
+      let ok = true;
+      try {
+        await refreshCoreAssets();
+      } catch (_) {
+        ok = false;
+      }
+      if (replyPort) {
+        replyPort.postMessage({ ok });
+      }
+    })());
   }
 });
 
-async function networkFirst(request) {
-  const cache = await caches.open(CACHE_NAME);
-  try {
-    const response = await fetch(request);
-    if (response && response.ok) {
-      cache.put(request, response.clone()).catch(() => {});
-    }
-    return response;
-  } catch (_) {
-    const cached = await cache.match(request, { ignoreSearch: true });
-    if (cached) return cached;
-    return cache.match("./index.html");
-  }
+async function fetchLatestVersion(request) {
+  const response = await fetch(request, { cache: "no-store" });
+  return response;
 }
 
 async function cacheFirst(request) {
@@ -63,18 +84,8 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
-  const isCoreAsset = [
-    "/",
-    "/index.html",
-    "/styles.css",
-    "/app.js",
-    "/manifest.json",
-    "/sw.js",
-    "/version.json"
-  ].includes(url.pathname);
-
-  if (event.request.mode === "navigate" || isCoreAsset) {
-    event.respondWith(networkFirst(event.request));
+  if (url.pathname.endsWith("/version.json") && url.searchParams.has("ts")) {
+    event.respondWith(fetchLatestVersion(event.request));
     return;
   }
 

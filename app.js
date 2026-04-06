@@ -107,6 +107,7 @@
   let currentVersion = "";
   let latestVersion = "";
   let swRegistration = null;
+  const CURRENT_VERSION_KEY = "weeklyPlanCurrentVersion";
 
   const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -1170,11 +1171,34 @@
     updateVersionButtonState();
   }
 
-  async function refreshVersionViews() {
+  function loadStoredCurrentVersion() {
     try {
-      currentVersion = await fetchVersionJson();
+      return String(localStorage.getItem(CURRENT_VERSION_KEY) || "").trim();
     } catch (_) {
-      currentVersion = "";
+      return "";
+    }
+  }
+
+  function saveStoredCurrentVersion(version) {
+    const normalized = String(version || "").trim();
+    try {
+      if (normalized) {
+        localStorage.setItem(CURRENT_VERSION_KEY, normalized);
+      }
+    } catch (_) {}
+    currentVersion = normalized;
+  }
+
+  async function refreshVersionViews() {
+    currentVersion = loadStoredCurrentVersion();
+
+    if (!currentVersion) {
+      try {
+        currentVersion = await fetchVersionJson();
+        saveStoredCurrentVersion(currentVersion);
+      } catch (_) {
+        currentVersion = "";
+      }
     }
 
     latestVersion = currentVersion;
@@ -1208,23 +1232,7 @@
       if (!registration) {
         registration = await navigator.serviceWorker.register("./sw.js");
       }
-
       bindWaitingWorker(registration);
-
-      registration.addEventListener("updatefound", () => {
-        const installingWorker = registration.installing;
-        if (!installingWorker) return;
-
-        installingWorker.addEventListener("statechange", async () => {
-          if (installingWorker.state === "installed" && navigator.serviceWorker.controller) {
-            bindWaitingWorker(registration);
-            try {
-              latestVersion = await fetchVersionJson({ noStore: true });
-            } catch (_) {}
-            reflectVersionViews();
-          }
-        });
-      });
     } catch (_) {
       updateVersionButtonState();
     }
@@ -1268,6 +1276,36 @@
     });
   }
 
+  async function requestServiceWorkerRefreshCache() {
+    const controller = navigator.serviceWorker.controller;
+    if (!controller) return false;
+
+    return await new Promise((resolve) => {
+      let settled = false;
+      const channel = new MessageChannel();
+
+      const finish = (ok) => {
+        if (settled) return;
+        settled = true;
+        resolve(!!ok);
+      };
+
+      channel.port1.onmessage = (event) => {
+        const data = event.data || {};
+        finish(data.ok === true);
+      };
+
+      try {
+        controller.postMessage({ type: "REFRESH_CACHE" }, [channel.port2]);
+      } catch (_) {
+        finish(false);
+        return;
+      }
+
+      setTimeout(() => finish(false), 15000);
+    });
+  }
+
   async function applyWaitingUpdate() {
     if (!swRegistration || el.btnApplyUpdate.disabled) return;
 
@@ -1282,24 +1320,29 @@
       bindWaitingWorker(swRegistration);
 
       const waitingWorker = await waitForWaitingWorker(swRegistration);
-      if (!waitingWorker) {
+      if (waitingWorker) {
+        await new Promise((resolve) => {
+          let done = false;
+          const finish = () => {
+            if (done) return;
+            done = true;
+            resolve();
+          };
+
+          navigator.serviceWorker.addEventListener("controllerchange", finish, { once: true });
+          waitingWorker.postMessage({ type: "SKIP_WAITING" });
+          setTimeout(finish, 8000);
+        });
+      }
+
+      const refreshed = await requestServiceWorkerRefreshCache();
+      if (!refreshed) {
         reflectVersionViews();
         return;
       }
 
-      await new Promise((resolve) => {
-        let done = false;
-        const finish = () => {
-          if (done) return;
-          done = true;
-          resolve();
-        };
-
-        navigator.serviceWorker.addEventListener("controllerchange", finish, { once: true });
-        waitingWorker.postMessage({ type: "SKIP_WAITING" });
-        setTimeout(finish, 8000);
-      });
-
+      saveStoredCurrentVersion(latestVersion);
+      reflectVersionViews();
       window.location.reload();
     } catch (_) {
       reflectVersionViews();
