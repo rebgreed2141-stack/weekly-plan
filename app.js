@@ -107,7 +107,7 @@
   let currentVersion = "";
   let latestVersion = "";
   let swRegistration = null;
-  const CURRENT_VERSION_KEY = "weeklyPlanCurrentVersion";
+  const INSTALLED_VERSION_KEY = "weekly_plan_installed_version";
 
   const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -1144,6 +1144,22 @@
   }
 
 
+  function getStoredInstalledVersion() {
+    try {
+      return String(localStorage.getItem(INSTALLED_VERSION_KEY) || "").trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function setStoredInstalledVersion(version) {
+    try {
+      if (version) {
+        localStorage.setItem(INSTALLED_VERSION_KEY, String(version).trim());
+      }
+    } catch (_) {}
+  }
+
   async function fetchVersionJson(options = {}) {
     const url = options.noStore ? `./version.json?ts=${Date.now()}` : "./version.json";
     const response = await fetch(url, {
@@ -1171,31 +1187,13 @@
     updateVersionButtonState();
   }
 
-  function loadStoredCurrentVersion() {
-    try {
-      return String(localStorage.getItem(CURRENT_VERSION_KEY) || "").trim();
-    } catch (_) {
-      return "";
-    }
-  }
-
-  function saveStoredCurrentVersion(version) {
-    const normalized = String(version || "").trim();
-    try {
-      if (normalized) {
-        localStorage.setItem(CURRENT_VERSION_KEY, normalized);
-      }
-    } catch (_) {}
-    currentVersion = normalized;
-  }
-
   async function refreshVersionViews() {
-    currentVersion = loadStoredCurrentVersion();
+    currentVersion = getStoredInstalledVersion();
 
     if (!currentVersion) {
       try {
         currentVersion = await fetchVersionJson();
-        saveStoredCurrentVersion(currentVersion);
+        setStoredInstalledVersion(currentVersion);
       } catch (_) {
         currentVersion = "";
       }
@@ -1232,6 +1230,7 @@
       if (!registration) {
         registration = await navigator.serviceWorker.register("./sw.js");
       }
+
       bindWaitingWorker(registration);
     } catch (_) {
       updateVersionButtonState();
@@ -1276,36 +1275,6 @@
     });
   }
 
-  async function requestServiceWorkerRefreshCache() {
-    const controller = navigator.serviceWorker.controller;
-    if (!controller) return false;
-
-    return await new Promise((resolve) => {
-      let settled = false;
-      const channel = new MessageChannel();
-
-      const finish = (ok) => {
-        if (settled) return;
-        settled = true;
-        resolve(!!ok);
-      };
-
-      channel.port1.onmessage = (event) => {
-        const data = event.data || {};
-        finish(data.ok === true);
-      };
-
-      try {
-        controller.postMessage({ type: "REFRESH_CACHE" }, [channel.port2]);
-      } catch (_) {
-        finish(false);
-        return;
-      }
-
-      setTimeout(() => finish(false), 15000);
-    });
-  }
-
   async function applyWaitingUpdate() {
     if (!swRegistration || el.btnApplyUpdate.disabled) return;
 
@@ -1320,28 +1289,26 @@
       bindWaitingWorker(swRegistration);
 
       const waitingWorker = await waitForWaitingWorker(swRegistration);
-      if (waitingWorker) {
-        await new Promise((resolve) => {
-          let done = false;
-          const finish = () => {
-            if (done) return;
-            done = true;
-            resolve();
-          };
-
-          navigator.serviceWorker.addEventListener("controllerchange", finish, { once: true });
-          waitingWorker.postMessage({ type: "SKIP_WAITING" });
-          setTimeout(finish, 8000);
-        });
-      }
-
-      const refreshed = await requestServiceWorkerRefreshCache();
-      if (!refreshed) {
+      if (!waitingWorker) {
         reflectVersionViews();
         return;
       }
 
-      saveStoredCurrentVersion(latestVersion);
+      await new Promise((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (done) return;
+          done = true;
+          resolve();
+        };
+
+        navigator.serviceWorker.addEventListener("controllerchange", finish, { once: true });
+        waitingWorker.postMessage({ type: "SKIP_WAITING" });
+        setTimeout(finish, 8000);
+      });
+
+      currentVersion = latestVersion || currentVersion;
+      setStoredInstalledVersion(currentVersion);
       reflectVersionViews();
       window.location.reload();
     } catch (_) {

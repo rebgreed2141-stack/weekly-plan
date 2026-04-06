@@ -1,4 +1,4 @@
-const CACHE_NAME = "weekly-plan-cache";
+const CACHE_NAME = "weekly-plan-v10";
 const CORE_ASSETS = [
   "./",
   "./index.html",
@@ -7,7 +7,6 @@ const CORE_ASSETS = [
   "./jszip.min.js",
   "./manifest.json",
   "./sw.js",
-  "./version.json",
   "./icon-192.png",
   "./icon-512.png"
 ];
@@ -26,47 +25,11 @@ self.addEventListener("activate", (event) => {
   })());
 });
 
-async function refreshCoreAssets() {
-  const cache = await caches.open(CACHE_NAME);
-  for (const asset of CORE_ASSETS) {
-    try {
-      const request = new Request(asset, { cache: "reload" });
-      const response = await fetch(request);
-      if (response && response.ok) {
-        await cache.put(asset, response.clone());
-      }
-    } catch (_) {}
-  }
-}
-
 self.addEventListener("message", (event) => {
-  const data = event.data || {};
-
-  if (data.type === "SKIP_WAITING") {
+  if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
-    return;
-  }
-
-  if (data.type === "REFRESH_CACHE") {
-    const replyPort = event.ports && event.ports[0];
-    event.waitUntil((async () => {
-      let ok = true;
-      try {
-        await refreshCoreAssets();
-      } catch (_) {
-        ok = false;
-      }
-      if (replyPort) {
-        replyPort.postMessage({ ok });
-      }
-    })());
   }
 });
-
-async function fetchLatestVersion(request) {
-  const response = await fetch(request, { cache: "no-store" });
-  return response;
-}
 
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE_NAME);
@@ -84,8 +47,9 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   const url = new URL(event.request.url);
-  if (url.pathname.endsWith("/version.json") && url.searchParams.has("ts")) {
-    event.respondWith(fetchLatestVersion(event.request));
+
+  if (url.pathname.endsWith("/version.json") || url.pathname === "/version.json") {
+    event.respondWith(fetch(event.request, { cache: "no-store" }));
     return;
   }
 
